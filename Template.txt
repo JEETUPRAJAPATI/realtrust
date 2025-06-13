@@ -1,0 +1,59 @@
+
+--------------------------------------------
+User Message Template (property_schedule_conform)
+--------------------------------------------
+
+Hi {{1}} 🏡,
+
+Your visit has been scheduled successfully! Here are the details:
+
+**Property Title:**{{2}}
+**Timing:** {{3}}
+**Address:** {{4}}
+**Field Manager's Contact:** {{5}}
+
+For more information, visit our website: www.yourrealestatewebsite.com 🌐
+
+Thank you!
+
+
+--------------------------------------------
+Field Manager Message Template (property_schedule_conform_field_manager)
+--------------------------------------------
+
+Hi {{1}} 👷‍♂️,
+
+Please schedule a visit to the following property:
+
+**Property Title:**{{2}}
+**Timing:** {{3}}
+**Address:** {{4}}
+
+Thank you! For more details, check our website: www.yourrealestatewebsite.com 🌐
+
+
+
+
+Hi [Tenant's Name],
+
+
+
+Hope you’re doing great! Just wanted to give you a heads-up that we’ve scheduled a property visit for [Property Address] on [Date] at [Time]. Don’t worry—we’ll be quick and won’t rearrange your furniture (too much). 😄
+
+
+
+If this timing doesn’t work for you or if there’s anything special we should know (like a cat that loves sneaking into visitors’ bags), let me know. Otherwise, we’ll make sure everything goes smoothly and leave things just as we found them.
+
+
+
+Thanks so much for your cooperation! Looking forward to the visit.
+
+
+
+Cheers,
+
+[Your Name]
+
+[Your Agency Name]
+
+[Your Contact Information]
