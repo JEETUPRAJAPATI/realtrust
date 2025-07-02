@@ -58,52 +58,70 @@
                                 <td><span class="badge bg-danger">{{ $visiter->userLists->count()}}</span></td>
                                 <td>
                                     @if($visiter && $visiter->timing)
-                                    {{ Carbon\Carbon::parse($visiter->timing)->format('l, F j, Y \a\t g:i A') }}
+                                    @php
+                                    $timingParts = explode(' - ', $visiter->timing);
+
+                                    if (count($timingParts) === 2) {
+                                    $startDatetime = $timingParts[0];
+                                    $endDatetime = $timingParts[1];
+
+                                    // Format using Carbon
+                                    try {
+                                    $formattedStart = Carbon\Carbon::createFromFormat('m/d/Y h:i A', trim($startDatetime))->format('l, F j, Y \a\t g:i A');
+                                    $formattedEnd = Carbon\Carbon::createFromFormat('m/d/Y h:i A', trim($endDatetime))->format('l, F j, Y \a\t g:i A');
+                                    echo $formattedStart . ' - ' . $formattedEnd;
+                                    } catch (\Exception $e) {
+                                    echo 'Invalid datetime format';
+                                    }
+                                    } else {
+                                    echo 'Invalid timing format';
+                                    }
+                                    @endphp
                                     @else
                                     N/A
                                     @endif
                                 </td>
 
                                 <td>
-                                <div class="text-center d-flex justify-content-center align-items-center">
-                                    <!-- Edit Schedule Visit Button -->
-                                    <!-- <a href="{{ route('admin.schedule_visit.edit', $visiter->id) }}" class="btn btn-info btn-sm waves-effect" data-bs-toggle="tooltip" data-bs-placement="top" title="Edit schedule Visit">
+                                    <div class="text-center d-flex justify-content-center align-items-center">
+                                        <!-- Edit Schedule Visit Button -->
+                                        <!-- <a href="{{ route('admin.schedule_visit.edit', $visiter->id) }}" class="btn btn-info btn-sm waves-effect" data-bs-toggle="tooltip" data-bs-placement="top" title="Edit schedule Visit">
                                         <i class="bi bi-pencil-square"></i>
                                     </a> -->
 
-                                    <!-- Delete Button -->
-                                    <button type="button" class="btn btn-danger btn-sm waves-effect mx-1" onclick="deleteUser({{ $visiter->id }})" data-bs-toggle="tooltip" data-bs-placement="top" title="Delete">
-                                        <i class="bi bi-trash"></i>
-                                    </button>
+                                        <!-- Delete Button -->
+                                        <button type="button" class="btn btn-danger btn-sm waves-effect mx-1" onclick="deleteUser({{ $visiter->id }})" data-bs-toggle="tooltip" data-bs-placement="top" title="Delete">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
 
-                                    <form action="{{ route('admin.schedule_properties.destroy', $visiter->id) }}" method="POST" id="del-user-{{ $visiter->id }}" style="display:none;">
-                                        @csrf
-                                        @method('DELETE')
-                                    </form>
+                                        <form action="{{ route('admin.schedule_properties.destroy', $visiter->id) }}" method="POST" id="del-user-{{ $visiter->id }}" style="display:none;">
+                                            @csrf
+                                            @method('DELETE')
+                                        </form>
 
-                                    <!-- View Schedule Visit Button -->
-                                    @if (!empty($visiter) && isset($visiter->timing))
-                                    <!-- <a href="{{ route('admin.schedule_visit.view', $visiter->property_id) }}" class="btn btn-success btn-sm waves-effect" data-bs-toggle="tooltip" data-bs-placement="top" title="View Schedule Visit">
+                                        <!-- View Schedule Visit Button -->
+                                        @if (!empty($visiter) && isset($visiter->timing))
+                                        <!-- <a href="{{ route('admin.schedule_visit.view', $visiter->property_id) }}" class="btn btn-success btn-sm waves-effect" data-bs-toggle="tooltip" data-bs-placement="top" title="View Schedule Visit">
                                         <i class="bi bi-calendar-check"></i>
                                     </a> -->
-                                    @else
-                                    <!-- Schedule Visit Button -->
-                                    <!-- <a href="{{ route('admin.schedule_properties', $visiter->property_id) }}" class="btn btn-warning btn-sm waves-effect" data-bs-toggle="tooltip" data-bs-placement="top" title="Schedule Visit">
+                                        @else
+                                        <!-- Schedule Visit Button -->
+                                        <!-- <a href="{{ route('admin.schedule_properties', $visiter->property_id) }}" class="btn btn-warning btn-sm waves-effect" data-bs-toggle="tooltip" data-bs-placement="top" title="Schedule Visit">
                                         <i class="bi bi-airplane-engines"></i>
                                     </a> -->
-                                    @endif
+                                        @endif
 
-                                    <!-- Total Users Button -->
-                                    <a href="{{route('admin.schedule_visit.user', $visiter->id)}}" class="btn btn-purple btn-sm waves-effect" data-bs-toggle="tooltip" data-bs-placement="top" title="Total User">
-                                        <i class="bi bi-person-fill"></i>
-                                    </a>
+                                        <!-- Total Users Button -->
+                                        <a href="{{route('admin.schedule_visit.user', $visiter->id)}}" class="btn btn-purple btn-sm waves-effect" data-bs-toggle="tooltip" data-bs-placement="top" title="Total User">
+                                            <i class="bi bi-person-fill"></i>
+                                        </a>
 
-                                    <!-- Send Template to All Users Button -->
-                                    <!--<a href="{{route('admin.schedule_visit.sendTemplateUser', $visiter->property_id)}}" class="btn btn-teal btn-sm waves-effect" data-bs-toggle="tooltip" data-bs-placement="top" title="Send Template All User">-->
-                                    <!--    <i class="bi bi-person-circle"></i>-->
-                                    <!--</a>-->
-                                
-                                </div>
+                                        <!-- Send Template to All Users Button -->
+                                        <!--<a href="{{route('admin.schedule_visit.sendTemplateUser', $visiter->property_id)}}" class="btn btn-teal btn-sm waves-effect" data-bs-toggle="tooltip" data-bs-placement="top" title="Send Template All User">-->
+                                        <!--    <i class="bi bi-person-circle"></i>-->
+                                        <!--</a>-->
+
+                                    </div>
                                 </td>
                             </tr>
                             @endforeach

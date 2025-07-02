@@ -66,33 +66,33 @@
                                 </td>
                                 <td>
                                     <div class="text-center d-flex justify-content-center align-items-center">
-                                    <!-- Delete Button -->
-                                    <button type="button" class="btn btn-danger btn-sm waves-effect"
-                                        onclick="deleteUser({{ $visiter->id }})" title="Delete">
-                                        <i class="bi bi-trash"></i>
-                                    </button>
+                                        <!-- Delete Button -->
+                                        <button type="button" class="btn btn-danger btn-sm waves-effect"
+                                            onclick="deleteUser({{ $visiter->id }})" title="Delete">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
 
-                                    <!-- Hidden Delete Form for Actual Deletion -->
-                                    <form action="{{ route('admin.schedule_properties.destroy', $visiter->id) }}"
-                                        method="POST" id="del-user-{{ $visiter->id }}" style="display: none;">
-                                        @csrf
-                                        @method('DELETE')
-                                    </form>
+                                        <!-- Hidden Delete Form for Actual Deletion -->
+                                        <form action="{{ route('admin.schedule_properties.destroy', $visiter->id) }}"
+                                            method="POST" id="del-user-{{ $visiter->id }}" style="display: none;">
+                                            @csrf
+                                            @method('DELETE')
+                                        </form>
 
-                                    <!-- Schedule Visit or View Schedule -->
-                                    @if (!empty($visiter->schedule_visit_date) && isset($visiter->schedule_visit_date->timing))
-                                    <a href="{{ route('admin.schedule_properties.view', $visiter->property_id) }}"
-                                        class="btn btn-success btn-sm waves-effect" data-toggle="tooltip"
-                                        data-placement="top" title="View Schedule Visit">
-                                        <i class="bi bi-calendar-check"></i>
-                                    </a>
-                                    @else
-                                    <a href="{{ route('admin.schedule_properties.visit', $visiter->property_id) }}"
-                                        class="btn btn-warning btn-sm waves-effect" data-toggle="tooltip"
-                                        data-placement="top" title="Schedule Visit">
-                                        <i class="bi bi-calendar-plus"></i>
-                                    </a>
-                                    @endif
+                                        <!-- Schedule Visit or View Schedule -->
+                                        <!-- @if (!empty($visiter->schedule_visit_date) && isset($visiter->schedule_visit_date->timing))
+                                        <a href="{{ route('admin.schedule_properties.view', $visiter->property_id) }}"
+                                            class="btn btn-success btn-sm waves-effect" data-toggle="tooltip"
+                                            data-placement="top" title="View Schedule Visit">
+                                            <i class="bi bi-calendar-check"></i>
+                                        </a>
+                                        @else
+                                        <a href="{{ route('admin.schedule_properties.visit', $visiter->property_id) }}"
+                                            class="btn btn-warning btn-sm waves-effect" data-toggle="tooltip"
+                                            data-placement="top" title="Schedule Visit">
+                                            <i class="bi bi-calendar-plus"></i>
+                                        </a>
+                                        @endif -->
                                     </div>
                                 </td>
                             </tr>

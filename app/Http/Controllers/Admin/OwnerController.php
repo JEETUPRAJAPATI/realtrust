@@ -83,6 +83,7 @@ class OwnerController extends Controller
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
             'image' => 'nullable|mimes:jpeg,jpg,png,webp,avif',
+            'mobile' => 'required|digits:15|unique:owners,mobile_no,' . $id,
             'email' => 'required|unique:owners,email,' . $id,
         ]);
         // Check if validation fails
@@ -113,6 +114,7 @@ class OwnerController extends Controller
 
         $owner->name = $request->name;
         $owner->image = $imagename;
+        $owner->mobile_no = $request->mobile;
         $owner->email = $request->email;
         $owner->save();
 
@@ -122,7 +124,7 @@ class OwnerController extends Controller
     public function destroy(string $id)
     {
         $owner = Owner::find($id);
-        $property = Property::where('owner_id',$owner->id)->get();
+        $property = Property::where('owner_id', $owner->id)->get();
         if ($property->isNotEmpty()) {
             Toastr::error('Owner cannot be deleted as it has associated property.');
             return back();

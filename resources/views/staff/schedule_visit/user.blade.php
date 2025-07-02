@@ -22,6 +22,8 @@
                             <tr>
                                 <th>SL.</th>
                                 <th>User Name</th>
+
+                                <th>User Mobile Number</th>
                                 <th>OTP Verification Field Manager</th>
                                 <th width="100px">Action</th>
                             </tr>
@@ -31,6 +33,8 @@
                             <tr>
                                 <td>{{ $key + 1 }}</td>
                                 <td>{{ $visiter->user->name ?? 'N/A' }}</td>
+
+                                <td>{{ $visiter->user->mobile_no ?? 'N/A' }}</td>
                                 <td>
                                     @if($visiter->otp_verification === 'done')
                                     <span class="badge bg-success">Done</span>
@@ -46,13 +50,12 @@
                                     </button>
 
                                     <!-- Hidden Delete Form for Actual Deletion -->
-                                    <form action="{{ route('staff.schedule_properties.destroy', $visiter->id) }}"
+                                    <form action="{{ route('staff.schedule_visit.user.destroy', $visiter->id) }}"
                                         method="POST" id="del-user-{{ $visiter->id }}" style="display:none;">
                                         @csrf
                                         @method('DELETE')
                                     </form>
                                 </td>
-
                             </tr>
                             @endforeach
                         </tbody>

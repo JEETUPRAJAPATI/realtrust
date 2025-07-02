@@ -89,7 +89,7 @@ class SchedulePropertyController extends Controller
     public function visit($scheduleVisitId)
     {
         //  dd('d');
-        $visiterInfo = ScheduleProperties::with(['property.owner', 'users', 'conform_timing.field_manager', 'schedule_visit_date.field_manager','property.society', 'property.localities', 'property.city'])
+        $visiterInfo = ScheduleProperties::with(['property.owner', 'users', 'conform_timing.field_manager', 'schedule_visit_date.field_manager', 'property.society', 'property.localities', 'property.city'])
             ->where('property_id', $scheduleVisitId)
             ->whereHas('users', function ($query) {
                 $query->whereColumn('schedule_properties.email', 'users.email');
@@ -101,18 +101,18 @@ class SchedulePropertyController extends Controller
                 $visiterInfo->staff_id = $staff->id;
                 $visiterInfo->save();
             }
-        }else {
+        } else {
             return response()->json(['message' => 'Unauthorized staff user.'], 401);
         }
         $fieldManager = FieldManager::all();
         // $user = User::all();
         $city = Cities::where('city_id', $visiterInfo->property->city)->first();
-        return view('staff.schedule_properties.show', compact('visiterInfo', 'fieldManager','city'));
+        return view('staff.schedule_properties.show', compact('visiterInfo', 'fieldManager', 'city'));
     }
 
     public function view($scheduleVisitId)
     {
-        
+
         $visiterInfo = ScheduleProperties::with(['property.owner', 'conform_timing', 'schedule_visit_date.field_manager'])->where('property_id', $scheduleVisitId)->firstOrFail();
 
         // dd($scheduleVisitId);
@@ -214,12 +214,19 @@ class SchedulePropertyController extends Controller
     public function destroy(string $id)
     {
         try {
-            $scheduleVisit = ScheduleProperties::where('id',$id)->first();
+            $scheduleVisit = ScheduleProperties::where('id', $id)->first();
+
+            if (!$scheduleVisit) {
+                Toastr::error('Schedule visit not found.', 'Error');
+                return back()->withInput();
+            }
+
             $scheduleVisit->delete();
-            Toastr::success('Schedule visite deleted successfully.', 'Success');
+
+            Toastr::success('Schedule visit deleted successfully.', 'Success');
             return back();
         } catch (\Exception $e) {
-            Toastr::error('Failed to delete Schedule visite try again. ', 'Error');
+            Toastr::error('Failed to delete Schedule visit. Try again.', 'Error');
             return back()->withInput();
         }
     }

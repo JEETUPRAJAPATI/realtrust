@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\ContactController;
+use App\Http\Controllers\FavoriteController;
+use App\Http\Controllers\InteraktWebhookController;
 use App\Http\Controllers\Owner\DashboardController as OwnerDashboardController;
 use App\Http\Controllers\Owner\LoginController as OwnerLoginController;
 use App\Http\Controllers\Owner\NotificationController;
@@ -15,6 +17,7 @@ use App\Http\Controllers\User\PropertyController;
 use App\Http\Controllers\User\ScheduleVisitController;
 use App\Http\Controllers\User\UserController;
 use App\Notifications\PropertyVisitScheduled;
+use App\Services\InteraktWhatsAppService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -29,8 +32,6 @@ use Illuminate\Support\Facades\Route;
 | be assigned to the "api" middleware group. Make something great!
 |
 */
-
-
 // Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 //     Route::get('posts', [UserController::class, 'posts'])->name('posts');
 // });
@@ -52,7 +53,10 @@ Route::get('/amenities', [PropertyController::class, 'getAmenities'])->name('ame
 Route::get('/share-url', [PropertyController::class, 'shareUrl'])->name('share-url');
 
 
+Route::post('/interakt/webhook', [InteraktWebhookController::class, 'handle']);
+Route::post('/interakt/webhook/user-conversation', [InteraktWebhookController::class, 'handleUserConversation']);
 Route::get('additional-details', [UserController::class, 'additionalDetails'])->name('additional-details');
+
 Route::post('/inquery', [ContactController::class, 'inquery']);
 Route::post('/contacts', [ContactController::class, 'store']);
 // Route::get('cities', [UserController::class, 'get_cities'])->name('cities');
@@ -78,6 +82,8 @@ Route::group(['prefix' => 'user', 'namespace' => 'user'], function () {
     Route::post('create-order', [PaymentController::class, 'createOrder'])->name('createOrder');
 
     Route::group(['middleware' => 'user'], function () {
+        Route::post('/favorites', [FavoriteController::class, 'toggleFavorite']);
+        Route::get('/favorites/{propertyId}', [FavoriteController::class, 'checkFavorite']);
 
         Route::post('upload-documents', [DashboardController::class, 'uploadDocuments'])->name('user.upload-documents');
         Route::post('upload-documents-update', [DashboardController::class, 'uploadDocumentsUpdate'])->name('user.update.documents');
@@ -85,7 +91,7 @@ Route::group(['prefix' => 'user', 'namespace' => 'user'], function () {
         Route::get('/property/agreement', [DashboardController::class, 'getAgreement'])->name('property.agreement');
         Route::post('upload-agreement', [DashboardController::class, 'upload_agreement'])->name('user.upload-agreement');
         Route::delete('documents/delete', [DashboardController::class, 'deleteDocuments']);
-        
+
         // Route for history schedule property
         Route::get('history_schedule_properties', [DashboardController::class, 'historyScheduleProperties'])->name('history_schedule_properties');
         // Route for get schedule property timing
@@ -146,7 +152,7 @@ Route::group(['prefix' => 'owner', 'namespace' => 'properties', 'middleware' => 
     Route::get('profile', [OwnerDashboardController::class, 'profile'])->name('owner.profile');
 
     Route::post('profile', [OwnerDashboardController::class, 'profileUpdate'])->name('owner.profile.update');
-   Route::get('property/listing', [PropertyController::class, 'property_list'])->name('owner.property.listing');
+    Route::get('property/listing', [PropertyController::class, 'property_list'])->name('owner.property.listing');
     Route::get('properties', [OwnerPropertyController::class, 'properties_list'])->name('properties.index');
     Route::post('/properties/properties_list', [OwnerPropertyController::class, 'properties_list'])->name('properties.properties_list');
     Route::post('properties/store', [OwnerPropertyController::class, 'store'])->name('properties.store');

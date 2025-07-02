@@ -29,6 +29,7 @@ use App\Models\Notification;
 use App\Models\Notifications;
 use App\Models\Society;
 use App\Rules\ConformTimingRule;
+use App\Services\InteraktWhatsAppService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
@@ -38,11 +39,11 @@ use Illuminate\Support\Str;
 class VisiterController extends Controller
 {
 
-    protected $whatsAppService;
+    protected $InteraktWhatsAppService;
 
-    public function __construct(WhatsAppService $whatsAppService)
+    public function __construct(InteraktWhatsAppService $InteraktWhatsAppService)
     {
-        $this->whatsAppService = $whatsAppService;
+        $this->InteraktWhatsAppService = $InteraktWhatsAppService;
     }
 
     public function index()
@@ -89,10 +90,11 @@ class VisiterController extends Controller
         if (!str_starts_with($phone, '+91')) {
             $phone = '+91' . ltrim($phone, '0');
         }
-        $templateName = 'otp_verification';
-        $languageCode = 'en';
+        $templateName = 'otp_verification_message';
         $variables = $otp;
-        $response = $this->whatsAppService->sendOtpTemplateMessage($phone, $templateName, $languageCode, $variables);
+        // $response = $this->whatsAppService->sendOtpTemplateMessage($phone, $templateName, $languageCode, $variables);
+        $response = $this->InteraktWhatsAppService->sendOtpVerificationMessage($phone, $otp);
+
         if (isset($response['error']) && $response['error'] === true) {
             WhatsappMessage::create([
                 'phone_number' => $phone,
@@ -141,9 +143,9 @@ class VisiterController extends Controller
             return redirect()->back()->withInput();
         }
         $scheduleVisit = ScheduleVisitUserList::find($id);
-       
-        $property=ScheduleVisit::where('id',$scheduleVisit->visite_id)->select('property_id')->first();
-     
+
+        $property = ScheduleVisit::where('id', $scheduleVisit->visite_id)->select('property_id')->first();
+
         if (!$scheduleVisit) {
             Toastr::error('Schedule visit not found.', 'Error');
             return redirect()->route('field_manager.visiter.index');
@@ -152,28 +154,28 @@ class VisiterController extends Controller
             $scheduleVisit->otp_verification = 'done';
         }
         if ($scheduleVisit->save()) {
-        
+
             $property_id = $property->property_id;
             $user_id = $scheduleVisit->user_id;
             // Retrieve user's email
             $user = User::where('id', $user_id)->select('email')->first();
-            
+
             if (!$user) {
                 return redirect()->route('field_manager.visiter.index')
                     ->with('error', 'Something went wrong. Please try again.');
             }
-            
-            $email = $user->email;
-            $ScheduleProperties = ScheduleProperties::where('property_id', $property_id)->where('email',$email)->first();
-            
-            if (!$ScheduleProperties) {
-                return redirect()->route('field_manager.visiter.index')
-                    ->with('error', 'Schedule property not found.');
-            }
 
-            $ScheduleProperties->status = 'schedule';
-            if ($ScheduleProperties->save()) {
-                $this->sendConformationTemplateUser($property_id,$user_id);
+            $email = $user->email;
+            $ScheduleProperties = ScheduleProperties::where('property_id', $property_id)->where('email', $email)->where('status', 'pending')->first();
+
+            if ($ScheduleProperties) {
+                // return redirect()->route('field_manager.visiter.index')
+                //     ->with('error', 'Schedule property not found.');
+                $ScheduleProperties->status = 'schedule';
+                $ScheduleProperties->save();
+            }
+            if ($property_id && $user_id) {
+                $this->sendConformationTemplateUser($property_id, $user_id);
                 Toastr::success('OTP verification completed successfully.', 'Success');
             } else {
                 Toastr::error('Failed to update schedule status. Please try again.', 'Error');
@@ -224,11 +226,12 @@ class VisiterController extends Controller
             return view('field_manager.visiter.show', compact('scheduleVisit'));
         }
     }
-    
-    
-     public function sendConformationTemplateUser($propertyId,$user_id)
+
+
+    public function sendConformationTemplateUser($propertyId, $user_id)
     {
         $scheduleVisit = ScheduleVisit::with('property')->where('property_id', $propertyId)->first();
+        // dd($scheduleVisit);
         if (!$scheduleVisit) {
             Log::error('Schedule visit not found', ['property_id' => $propertyId]);
             Toastr::error('Schedule visit not found for the property.', 'Error');
@@ -237,10 +240,10 @@ class VisiterController extends Controller
 
         $localityName = Locality::find($scheduleVisit->property->locality)->name ?? 'No locality found';
         $societyName = Society::find($scheduleVisit->property->society_name)->name ?? 'No society found';
-        // $cityName = Cities::find($scheduleVisit->property->city)->city_name ?? 'No city found';
+        $cityName = Cities::find($scheduleVisit->property->city)->city_name ?? 'No city found';
         $imageUrl = asset('storage/property/' . $scheduleVisit->property->owner_id . '/' . $scheduleVisit->property->unique_id . '/' . $scheduleVisit->property->image);
 
-        $scheduleVisitUserList = ScheduleVisitUserList::with('visit', 'user')->where('visite_id', $scheduleVisit->id)->where('user_id',$user_id)->get();
+        $scheduleVisitUserList = ScheduleVisitUserList::with('visit', 'user')->where('visite_id', $scheduleVisit->id)->where('user_id', $user_id)->get();
         if ($scheduleVisitUserList->isEmpty()) {
             Log::error('No users found for the scheduled visit', ['schedule_visit_id' => $scheduleVisit->id]);
             Toastr::error('No users found for the scheduled visit.', 'Error');
@@ -258,7 +261,7 @@ class VisiterController extends Controller
                 $phoneNumber = '+91' . ltrim($phoneNumber, '0');
             }
 
-            $templateName = 'user_conformation_form';
+            $templateName = 'property_visit_confirmation_user';
             $languageCode = 'en';
             $variables = [
                 $userInfo->user->name,
@@ -273,15 +276,27 @@ class VisiterController extends Controller
             ]);
             $confirmationUrl = $scheduleVisit->property->unique_id . '#payments';
             $callingUrl = $userInfo->user_id . '/' . $scheduleVisit->staff_id;
-            $response = $this->whatsAppService->sendConformationForm(
+            // $response = $this->whatsAppService->sendConformationForm(
+            //     $phoneNumber,
+            //     $templateName,
+            //     $languageCode,
+            //     $variables,
+            //     $confirmationUrl,
+            //     $imageUrl,
+            //     $callingUrl
+            // );
+            $response = $this->InteraktWhatsAppService->sendPropertyVisitConfirmationUser(
                 $phoneNumber,
-                $templateName,
-                $languageCode,
-                $variables,
+                $userInfo->user->name,
+                $scheduleVisit->property->title,
+                $scheduleVisit->property->bhk,
+                "$cityName, $localityName, $societyName",
+                $scheduleVisit->property->unique_id,
                 $confirmationUrl,
-                $imageUrl,
                 $callingUrl
             );
+
+
             if (isset($response['error']) && $response['error']) {
                 $failureCount++;
                 $failedUsers[] = $userInfo->user->name;

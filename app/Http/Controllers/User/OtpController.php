@@ -9,6 +9,8 @@ use Illuminate\Http\Request;
 use App\Models\User;
 use App\Models\VerificationOtp;
 use App\Services\WhatsAppService;
+
+use App\Services\InteraktWhatsAppService;
 use Carbon\Carbon;
 use GuzzleHttp\Client;
 use Illuminate\Support\Facades\Log;
@@ -17,11 +19,11 @@ class OtpController extends Controller
 {
 
 
-    protected $whatsAppService;
+    protected $InteraktWhatsAppService;
 
-    public function __construct(WhatsAppService $whatsAppService)
+    public function __construct(InteraktWhatsAppService $InteraktWhatsAppService)
     {
-        $this->whatsAppService = $whatsAppService;
+        $this->InteraktWhatsAppService = $InteraktWhatsAppService;
     }
 
     public function requestOtp(Request $request)
@@ -75,8 +77,9 @@ class OtpController extends Controller
                 ], 500);
             }
             // 'otp' => $otp
-            return response()->json(['message' => 'OTP sent successfully to user',
-            // 'otp' => $otp
+            return response()->json([
+                'message' => 'OTP sent successfully to user',
+                // 'otp' => $otp
             ]);
         }
 
@@ -85,20 +88,22 @@ class OtpController extends Controller
 
     function sendOtp($phone, $otp)
     {
-
+        // dd('dsa');
         if (!str_starts_with($phone, '+91')) {
             $phone = '+91' . ltrim($phone, '0');
         }
-        $templateName = 'otp_verification';
-        $languageCode = 'en';
-        $variables = $otp;
-        $response = $this->whatsAppService->sendOtpTemplateMessage($phone, $templateName, $languageCode, $variables);
-
+        // Log::info('phone', ['phone' =>  $phone]);
+        // die();
+        $response = $this->InteraktWhatsAppService->sendOtpVerificationMessage($phone, $otp);
+        //  $response = app(\App\Services\InteraktWhatsAppService::class)->sendOtpVerificationMessage(
+        //     '+919512087056',
+        //     '829104'
+        // );
         if (isset($response['error']) && $response['error'] === true) {
             WhatsappMessage::create([
                 'phone_number' => $phone,
-                'template_name' => $templateName,
-                'variables' => json_encode(value: $variables),
+                'template_name' => 'otp_verification_message_o8',
+                'variables' => json_encode(value: $otp),
                 'status' => 'failed',
                 'api_response' => $response['message'],
             ]);
@@ -115,8 +120,8 @@ class OtpController extends Controller
         } else {
             WhatsappMessage::create([
                 'phone_number' => $phone,
-                'template_name' => $templateName,
-                'variables' => json_encode($variables),
+                'template_name' => 'otp_verification_message',
+                'variables' => json_encode($otp),
                 'message_id' => $response['messages'][0]['id'] ?? null,
                 'status' => 'sent',
                 'api_response' => json_encode($response),

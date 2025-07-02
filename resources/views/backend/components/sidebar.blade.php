@@ -76,28 +76,28 @@
              </a>
          </li>
 
-         <!--<li class="nav-heading">Schedule</li>-->
+         <li class="nav-heading">Schedule</li>
 
-         <!--<li class="nav-item ">-->
-         <!--    <a class="nav-link {{ Request::is('admin/schedule_visit*') ? '' : 'collapsed' }}" href="{{ route('admin.schedule_visit.index') }}">-->
-         <!--        <i class="bi bi-calendar-event"></i>-->
-         <!--        <span>Schedule Visit</span>-->
-         <!--    </a>-->
-         <!--</li>-->
+         <li class="nav-item ">
+             <a class="nav-link {{ Request::is('admin/schedule_visit*') ? '' : 'collapsed' }}" href="{{ route('admin.schedule_visit.index') }}">
+                 <i class="bi bi-calendar-event"></i>
+                 <span>Schedule Visit</span>
+             </a>
+         </li>
 
-         <!--<li class="nav-item ">-->
-         <!--    <a class="nav-link {{ Request::is('admin/schedule_properties*') ? '' : 'collapsed' }}" href="{{ route('admin.schedule_properties.index') }}">-->
-         <!--        <i class="bi bi-person-check"></i>-->
-         <!--        <span>Visiter</span>-->
-         <!--    </a>-->
-         <!--</li>-->
+         <li class="nav-item ">
+             <a class="nav-link {{ Request::is('admin/schedule_properties*') ? '' : 'collapsed' }}" href="{{ route('admin.schedule_properties.index') }}">
+                 <i class="bi bi-person-check"></i>
+                 <span>Visiter</span>
+             </a>
+         </li>
          <li class="nav-heading">Payments</li>
 
          <li class="nav-item ">
-            <a class="nav-link {{ Request::is('admin/invoices*') ? '' : 'collapsed' }}" href="{{ route('admin.invoice.list') }}">
-                <i class="bi bi-person-check"></i>
-                <span>Invoice</span>
-            </a>
+             <a class="nav-link {{ Request::is('admin/invoices*') ? '' : 'collapsed' }}" href="{{ route('admin.invoice.list') }}">
+                 <i class="bi bi-person-check"></i>
+                 <span>Invoice</span>
+             </a>
          </li>
 
          <li class="nav-heading">Blog</li>
@@ -155,7 +155,7 @@
 
          <li class="nav-heading">Settings</li>
          <li class="nav-item">
-               <a class="nav-link {{ Request::is('admin/changepassword*') ? '' : 'collapsed' }} {{ Request::is('admin/profile*') ? '' : 'collapsed' }}" data-bs-target="#charts-nav" data-bs-toggle="collapse" href="#" aria-expanded="true">
+             <a class="nav-link {{ Request::is('admin/changepassword*') ? '' : 'collapsed' }} {{ Request::is('admin/profile*') ? '' : 'collapsed' }}" data-bs-target="#charts-nav" data-bs-toggle="collapse" href="#" aria-expanded="true">
                  <i class="bi bi-gear"></i><span>Settings</span><i class="bi bi-chevron-down ms-auto"></i>
              </a>
              <ul id="charts-nav" class="nav-content collapse show" data-bs-parent="#sidebar-nav">
@@ -176,9 +176,9 @@
          @endif
          @if(Auth::guard('staff')->check())
          @php
-            $permission = \App\Models\StaffPermission::where('id', \Illuminate\Support\Facades\Auth::guard('staff')->id())->first();
-        @endphp
-        @if ($permission)
+         $permission = \App\Models\StaffPermission::where('id', \Illuminate\Support\Facades\Auth::guard('staff')->id())->first();
+         @endphp
+         @if ($permission)
 
          <li class="nav-item ">
              <a class="nav-link {{ Request::is('staff/dashboard') ? '' : 'collapsed' }}" href="{{ route('staff.dashboard') }}">
@@ -194,7 +194,7 @@
              </a>
          </li>
          @endif
-        @if ($permission->owner == 1)
+         @if ($permission->owner == 1)
          <li class="nav-item ">
              <a class="nav-link {{ Request::is('staff/owner*') ? '' : 'collapsed' }}" href="{{ route('staff.owner.index') }}">
                  <i class="bi bi-people"></i>
@@ -225,8 +225,8 @@
                  <span>Field Manager</span>
              </a>
          </li>
-        @endif
-        @if($permission->schedule_visit == 1)
+         @endif
+         @if($permission->schedule_visit == 1)
          <li class="nav-header">Schedule</li>
          <li class="nav-item ">
              <a class="nav-link {{ Request::is('staff/schedule_visit*') ? '' : 'collapsed' }}" href="{{ route('staff.schedule_visit.index') }}">
@@ -250,7 +250,7 @@
                  <span>Posts</span>
              </a>
          </li>
-        @endif
+         @endif
          <li class="nav-header">Help</li>
          <li class="nav-item ">
              <a class="nav-link {{ Request::is('staff/contact*') ? '' : 'collapsed' }}" href="{{ route('staff.contact.index') }}">
@@ -258,7 +258,7 @@
                  <span>Contact</span>
              </a>
          </li>
-        
+
          @if($permission->inquiry_list == 1)
          <li class="nav-item ">
              <a class="nav-link {{ Request::is('staff/inquery*') ? '' : 'collapsed' }}" href="{{ route('staff.inquery.index') }}">
@@ -266,15 +266,15 @@
                  <span>Inquiry</span>
              </a>
          </li>
-        @endif
-        
-        <li class="nav-item">
+         @endif
+
+         <li class="nav-item">
              <a class="nav-link {{ Request::is('staff/additional-details*') ? '' : 'collapsed' }}" href="{{ route('staff.additional-details.index') }}">
                  <i class="bi bi-tag"></i>
                  <span>Additional Details</span>
              </a>
          </li>
-        @if($permission->settings == 1)
+         @if($permission->settings == 1)
          <li class="nav-heading">Settings</li>
          <li class="nav-item">
              <a class="nav-link {{ Request::is('staff/changepassword*') ? '' : 'collapsed' }} {{ Request::is('staff/profile*') ? '' : 'collapsed' }}" data-bs-target="#setting-staff" data-bs-toggle="collapse" href="#" aria-expanded="true">
@@ -294,28 +294,28 @@
              </ul>
          </li>
          @endif
-        @endif
+         @endif
          @endif
          @if(Auth::guard('field_manager')->check())
-            <!-- Dashboard -->
-            <li class="nav-item {{ Request::is('field_manager/dashboard') ? 'active' : '' }}">
-                <a class="nav-link {{ Request::is('field_manager/dashboard*') ? '' : 'collapsed' }}" href="{{ route('field_manager.dashboard') }}">
-                    <i class="bi bi-speedometer2"></i>
-                    <span>Dashboard</span>
-                </a>
-            </li>
+         <!-- Dashboard -->
+         <li class="nav-item {{ Request::is('field_manager/dashboard') ? 'active' : '' }}">
+             <a class="nav-link {{ Request::is('field_manager/dashboard*') ? '' : 'collapsed' }}" href="{{ route('field_manager.dashboard') }}">
+                 <i class="bi bi-speedometer2"></i>
+                 <span>Dashboard</span>
+             </a>
+         </li>
 
-            <!-- Visiter -->
-            <li class="nav-item {{ Request::is('field_manager/visiter*') ? 'active' : '' }}">
-                <a class="nav-link {{ Request::is('field_manager/visiter*') ? '' : 'collapsed' }}" href="{{ route('field_manager.visiter.index') }}">
-                    <i class="bi bi-people"></i>
-                    <span>Visiter</span>
-                </a>
-            </li>
+         <!-- Visiter -->
+         <li class="nav-item {{ Request::is('field_manager/visiter*') ? 'active' : '' }}">
+             <a class="nav-link {{ Request::is('field_manager/visiter*') ? '' : 'collapsed' }}" href="{{ route('field_manager.visiter.index') }}">
+                 <i class="bi bi-people"></i>
+                 <span>Visiter</span>
+             </a>
+         </li>
 
-            <li class="nav-heading">Settings</li>
-            <!-- Settings with Dropdown -->
-            <li class="nav-item">
+         <li class="nav-heading">Settings</li>
+         <!-- Settings with Dropdown -->
+         <li class="nav-item">
              <a class="nav-link {{ Request::is('field_manager/changepassword*') ? '' : 'collapsed' }} {{ Request::is('field_manager/profile*') ? '' : 'collapsed' }}" data-bs-target="#charts-nav" data-bs-toggle="collapse" href="#" aria-expanded="true">
                  <i class="bi bi-gear"></i><span>Settings</span><i class="bi bi-chevron-down ms-auto"></i>
              </a>
@@ -334,7 +334,7 @@
          </li>
 
 
-        @endif
+         @endif
 
      </ul>
 

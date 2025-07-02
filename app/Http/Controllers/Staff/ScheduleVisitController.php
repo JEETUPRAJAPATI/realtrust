@@ -22,8 +22,10 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use App\Models\Notification;
 use App\Models\Notifications;
+use App\Models\ScheduleWaitingList;
 use App\Models\Society;
 use App\Rules\ConformTimingRule;
+use App\Services\InteraktWhatsAppService;
 use App\Services\WhatsAppService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -38,15 +40,15 @@ class ScheduleVisitController extends Controller
 {
 
 
-    protected $whatsAppService;
+    protected $InteraktWhatsAppService;
 
-    public function __construct(WhatsAppService $whatsAppService)
+    public function __construct(InteraktWhatsAppService $InteraktWhatsAppService)
     {
-        $this->whatsAppService = $whatsAppService;
+        $this->InteraktWhatsAppService = $InteraktWhatsAppService;
     }
     public function index()
     {
-        
+
         $visiterInfo = ScheduleVisit::with('property', 'field_manager', 'owner', 'userLists.user')->orderBy('id', 'desc')->get();
 
         // $visiterInfo = ScheduleVisit::select('property_id', 'owner_id', \DB::raw('MIN(timing) as timing'))
@@ -103,7 +105,7 @@ class ScheduleVisitController extends Controller
 
         // Step 2: Prepare the timing with seconds and convert to UTC
         $timingWithSeconds = $request->input('timing') . ':00';
-    
+
         $datetime = Carbon::createFromFormat('Y-m-d H:i:s', trim($timingWithSeconds))
             ->setTimezone('Asia/Kolkata');
 
@@ -145,12 +147,12 @@ class ScheduleVisitController extends Controller
 
         return redirect()->route('staff.schedule_visit.index')->with('success', 'Schedule Visit successfully created.');
     }
-    
+
     public function manual_schedule_visit(Request $request)
     {
-         // dd($request->all());
-     
-     // Step 1: Validate request data
+        // dd($request->all());
+
+        // Step 1: Validate request data
         $validator = Validator::make($request->all(), [
             'properties' => 'required|string',
             'owner'      => 'required|integer',
@@ -184,7 +186,7 @@ class ScheduleVisitController extends Controller
                 return response()->json([
                     'status' => false,
                     'message' => 'This property visit is already scheduled. Once timing confirms, the join button will appear. Please wait...',
-                ], 409); 
+                ], 409);
             }
 
             // Step 4: Fetch user details
@@ -195,30 +197,29 @@ class ScheduleVisitController extends Controller
                     'message' => 'User not found.',
                 ], 404);
             }
-           // dd($user);
+            // dd($user);
             // Step 5: Create schedule record
             $scheduledVisit = ScheduleProperties::create([
-                'property_id'  =>$request->input('properties'),
+                'property_id'  => $request->input('properties'),
                 'full_name'    => $user->name,
                 'email'        => $user->email,
                 'visit_type'   => $request->input('visit_type'),
                 'company_name' => $request->input('company'),
             ]);
 
-                 return redirect()->route('staff.schedule_properties.index')
-            ->with('success', 'Scheduled visit created successfully.');
+            return redirect()->route('staff.schedule_properties.index')
+                ->with('success', 'Scheduled visit created successfully.');
         } catch (\Exception $e) {
             // Step 6: Handle unexpected exceptions
-               return redirect()->back()
-            ->with('error', 'An unexpected error occurred: ' . $e->getMessage())
-            ->withInput();
+            return redirect()->back()
+                ->with('error', 'An unexpected error occurred: ' . $e->getMessage())
+                ->withInput();
         }
-     
     }
     public function store(Request $request)
     {
-       
-     
+
+
         $validator = Validator::make($request->all(), [
             'properties' => 'required',
             // 'field_manager_id' => 'required',
@@ -265,16 +266,23 @@ class ScheduleVisitController extends Controller
             $scheduleProperty = ScheduleProperties::findOrFail($request->input('id'));
             $scheduleProperty->status = 'schedule';
             $scheduleProperty->save();
-            
+
             // Notify all waiting users
-            // $waitingUsers = ScheduleWaitingList::where('property_id', $request->property_id)
-            //     ->where('status', 'waiting')
-            //     ->get();
-            // foreach ($waitingUsers as $waitingUser) {
-            //     $this->notifyWaitingUser($waitingUser, $ScheduleVisit);
-            //     $waitingUser->status = 'notified';
-            //     $waitingUser->save();
-            // }
+            $waitingUsers = ScheduleWaitingList::with('user')->where('property_id', $request->input('properties'))
+                ->where('status', 'waiting')
+                ->get();
+            // dd($waitingUsers);
+            foreach ($waitingUsers as $waitingUser) {
+                $this->sendWhatsAppMessageToUser($visit, $waitingUser->user);
+
+                $waitingUser->status = 'notified';
+                $waitingUser->save();
+
+                ScheduleVisitUserList::create([
+                    'user_id' => $waitingUser->user->id,
+                    'visite_id' => $visit->id
+                ]);
+            }
         }
 
 
@@ -306,8 +314,16 @@ class ScheduleVisitController extends Controller
         $cityName = Cities::where('city_id', $scheduleVisit->property->city)->first()->city_name ?? 'No city found';
 
         $gatPassDetails = ConformTiming::where('property_id', $scheduleVisit->property->unique_id)->first();
+
         $gatePass = $gatPassDetails->gate_pass ?? null;
-        $flatNumber = $gatPassDetails->flat_number ?? null;
+
+        if ($gatePass && Storage::disk('public')->exists('gate_pass/' . $gatePass)) {
+            $gatePassUrl = str_replace('/public', '', asset('storage/gate_pass/' . $gatePass));
+        } else {
+            $gatePassUrl = "Gate pass not available";
+        }
+
+        $flatNumber = $gatPassDetails->flat_number ?? 'Not available';
 
 
         $phoneNumber = $scheduleVisit->field_manager->mobile_no;
@@ -321,13 +337,27 @@ class ScheduleVisitController extends Controller
             $scheduleVisit->property->title,
             $scheduleVisit->timing,
             $cityName . ',' . $localityName . ',' . $societyName,
-               $gatePass,
+            $gatePassUrl,
             $flatNumber
         ];
+        // dd($scheduleVisit);
         // $scheduleVisit->property->locality . ', ' . $scheduleVisit->property->city,
+        $callingUrl =   $scheduleVisit->field_manager->id . '/' . $scheduleVisit->staff_id;
+
 
         // dd($variables);
-        $response = $this->whatsAppService->sendingWhatsAppMessageToFieldManager($phoneNumber, $templateName, $languageCode, $variables);
+        // $response = $this->whatsAppService->sendingWhatsAppMessageToFieldManager($phoneNumber, $templateName, $languageCode, $variables);
+        $response = $this->InteraktWhatsAppService->sendNotifyFieldManagerToVisit(
+            $phoneNumber,
+            $scheduleVisit->field_manager->name,
+            $scheduleVisit->property->title,
+            $scheduleVisit->timing,
+            "$cityName, $localityName, $societyName",
+            $gatePassUrl,
+            $flatNumber,
+            $callingUrl
+        );
+
         if (isset($response['error']) && $response['error'] === true) {
             // Log failed message
             WhatsappMessage::create([
@@ -338,7 +368,7 @@ class ScheduleVisitController extends Controller
                 'status' => 'failed',
                 'api_response' => $response['message'],
             ]);
-            Toastr::success('Message sent to Field Manager successfully.', 'Success');
+            Toastr::error('Failed to send message to Field Manager: ' . $response['message'], 'Error');
             return;
             // return response()->json(['error' => true, 'message' => 'Failed to send message: ' . $response['message']], 500);
         } else {
@@ -404,6 +434,22 @@ class ScheduleVisitController extends Controller
         }
         return back();
     }
+    public function destroyUser(string $id)
+    {
+        try {
+            $records = ScheduleVisitUserList::where('id', $id)->get();
+            if ($records->isNotEmpty()) {
+                ScheduleVisitUserList::where('id', $id)->delete();
+                Toastr::success('visiter deleted successfully.', 'Success');
+            } else {
+                Toastr::error('visiter not found.', 'Error');
+            }
+            return back();
+        } catch (\Exception $e) {
+            Toastr::error('Failed to delete visiter. Try again.', 'Error');
+            return back()->withInput();
+        }
+    }
     public function unreadCount()
     {
 
@@ -423,7 +469,7 @@ class ScheduleVisitController extends Controller
         ])
             ->where('property_id', $scheduleVisitId)
             ->firstOrFail();
-        dd($visiterInfo);
+        // dd($visiterInfo);
         // $fieldManager = FieldManager::all();
         return view('staff.schedule_visit.view', compact('visiterInfo'));
     }
@@ -480,76 +526,69 @@ class ScheduleVisitController extends Controller
 
     private function sendWhatsAppMessageToUser($visit, $user)
     {
-        $scheduleVisit = ScheduleVisit::with('user', 'field_manager', 'property')->findOrFail($visit->id);
+        try {
+            $scheduleVisit = ScheduleVisit::with('field_manager', 'property')->findOrFail($visit->id);
 
-        $localityName = Locality::where('id', $scheduleVisit->property->locality)->first()->name ?? 'No locality found';
-        $societyName = Society::where('id', $scheduleVisit->property->society_name)->first()->name ?? 'No society found';
-        $cityName = Cities::where('city_id', $scheduleVisit->property->city)->first()->city_name ?? 'No city found';
+            // Support both ScheduleVisitUserList and ScheduleWaitingList
+            $userId = $user->user_id ?? $user->id;
 
-        $imageUrl = asset('storage/property/' . $scheduleVisit->property->owner_id . '/' . $scheduleVisit->property->unique_id . '/' . $scheduleVisit->property->image);
+            $userModel = \App\Models\User::find($userId);
+            if (!$userModel) {
+                Log::warning('User not found when sending WhatsApp message', ['user_id' => $userId]);
+                return;
+            }
 
-         $gatPassDetails = ConformTiming::where('property_id', $scheduleVisit->property->unique_id)->first();
-         
-        // $gatePass = $gatPassDetails->gate_pass ?? null;
-        
-        $gatePassUrl = asset(Storage::url('gate_pass/' . $gatPassDetails->gate_pass));
-        
-        $flatNumber = $gatPassDetails->flat_number ?? null;
-        // $propertyImage
-        // $phoneNumber = $scheduleVisit->user->mobile_no;
-        $userInfo = ScheduleVisitUserList::with('user')->findOrFail($user->id);
-        $phoneNumber = $userInfo->user->mobile_no;
-        if (!str_starts_with($phoneNumber, '+91')) {
-            $phoneNumber = '+91' . ltrim($phoneNumber, '0');
-        }
-        $templateName = 'property_schedule_confirmation_user'; // Define your template name here
-        
-        $languageCode = 'en_US';
-        $confirmationUrl =  $scheduleVisit->field_manager->id;
-        
-        $callingUrl = $user->user_id . '/' . $scheduleVisit->field_manager->id;
-        
-        $variables = [
-            $userInfo->user->name,
-            $scheduleVisit->property->title,
-            $scheduleVisit->timing,
-            $cityName . ',' . $localityName . ',' . $societyName,
-            $scheduleVisit->property->bhk,
-        ];
-        // dd($variables);
-        $response = $this->whatsAppService->sendingWhatsAppMessageToUser($phoneNumber, $templateName, $languageCode, $variables, $confirmationUrl, $imageUrl,$callingUrl);
+            $phoneNumber = $userModel->mobile_no;
+            if (!str_starts_with($phoneNumber, '+91')) {
+                $phoneNumber = '+91' . ltrim($phoneNumber, '0');
+            }
 
+            $localityName = Locality::find($scheduleVisit->property->locality)->name ?? 'No locality found';
+            $societyName = Society::find($scheduleVisit->property->society_name)->name ?? 'No society found';
+            $cityName = Cities::find($scheduleVisit->property->city)->city_name ?? 'No city found';
 
-        if (isset($response['error']) && $response['error'] === true) {
-            // Log failed message
+            $confirmationUrl = $scheduleVisit->field_manager->id;
+            $callingUrl = $userId . '/' . $scheduleVisit->field_manager->id;
+
+            $response = $this->InteraktWhatsAppService->sendVisitConfirmUser(
+                $phoneNumber,
+                $userModel->name,
+                $scheduleVisit->property->title,
+                $scheduleVisit->property->bhk,
+                $scheduleVisit->timing,
+                "$cityName, $localityName, $societyName",
+                $scheduleVisit->field_manager->mobile_no,
+                $confirmationUrl,
+                $callingUrl
+            );
+
+            // Log response
             WhatsappMessage::create([
                 'unique_id' => $scheduleVisit->property->unique_id,
                 'phone_number' => $phoneNumber,
-                'template_name' => $templateName,
-                'variables' => $variables,
-                'message_id' => $response['messages'][0]['id'] ?? null, // Assuming response contains message ID
-                'status' => 'sent',
-                'api_response' => $response,
-                'sent_at' => now(),
-            ]);
-            Toastr::error('Failed to send message to User: ' . $response['message'], 'Error');
-            return;
-            // return response()->json(['error' => true, 'message' => 'Failed to send message: ' . $response['message']], 500);
-        } else {
-            // Log successful message
-            WhatsappMessage::create([
-                'unique_id' => $scheduleVisit->property->unique_id,
-                'phone_number' => $phoneNumber,
-                'template_name' => $templateName,
-                'variables' => $variables,
-                'message_id' => $response['messages'][0]['id'] ?? null, // Assuming response contains message ID
-                'status' => 'sent',
+                'template_name' => 'visit_confirm_user',
+                'variables' => [
+                    $userModel->name,
+                    $scheduleVisit->property->title,
+                    $scheduleVisit->property->bhk,
+                    $scheduleVisit->timing,
+                    "$cityName, $localityName, $societyName",
+                    $scheduleVisit->field_manager->mobile_no,
+                ],
+                'message_id' => $response['messages'][0]['id'] ?? null,
+                'status' => $response['error'] ?? false ? 'failed' : 'sent',
                 'api_response' => $response,
                 'sent_at' => now(),
             ]);
 
-            Toastr::success('Message sent to User successfully.', 'Success');
-            return;
+            if (!empty($response['error'])) {
+                Toastr::error('Failed to send message to User: ' . $response['message'], 'Error');
+            } else {
+                Toastr::success('Message sent to User successfully.', 'Success');
+            }
+        } catch (\Exception $e) {
+            Log::error('WhatsApp sending failed for user', ['error' => $e->getMessage()]);
+            Toastr::error('Exception during WhatsApp send: ' . $e->getMessage(), 'Error');
         }
     }
 
@@ -608,7 +647,7 @@ class ScheduleVisitController extends Controller
 
         $localityName = Locality::find($scheduleVisit->property->locality)->name ?? 'No locality found';
         $societyName = Society::find($scheduleVisit->property->society_name)->name ?? 'No society found';
-        // $cityName = Cities::find($scheduleVisit->property->city)->city_name ?? 'No city found';
+        $cityName = Cities::find($scheduleVisit->property->city)->city_name ?? 'No city found';
         $imageUrl = asset('storage/property/' . $scheduleVisit->property->owner_id . '/' . $scheduleVisit->property->unique_id . '/' . $scheduleVisit->property->image);
 
         $scheduleVisitUserList = ScheduleVisitUserList::with('visit', 'user')->where('visite_id', $scheduleVisit->id)->get();
@@ -629,7 +668,7 @@ class ScheduleVisitController extends Controller
                 $phoneNumber = '+91' . ltrim($phoneNumber, '0');
             }
 
-            $templateName = 'user_conformation_form';
+            $templateName = 'property_visit_confirmation_user';
             $languageCode = 'en';
             $variables = [
                 $userInfo->user->name,
@@ -644,16 +683,28 @@ class ScheduleVisitController extends Controller
             ]);
             $confirmationUrl = $scheduleVisit->property->unique_id . '#payments';
             $callingUrl = $userInfo->user_id . '/' . $scheduleVisit->staff_id;
-          
-            $response = $this->whatsAppService->sendConformationForm(
+
+            // $response = $this->whatsAppService->sendConformationForm(
+            //     $phoneNumber,
+            //     $templateName,
+            //     $languageCode,
+            //     $variables,
+            //     $confirmationUrl,
+            //     $imageUrl,
+            //     $callingUrl
+            // );
+
+            $response = $this->InteraktWhatsAppService->sendPropertyVisitConfirmationUser(
                 $phoneNumber,
-                $templateName,
-                $languageCode,
-                $variables,
+                $userInfo->user->name,
+                $scheduleVisit->property->title,
+                $scheduleVisit->property->bhk,
+                "$cityName, $localityName, $societyName",
+                $scheduleVisit->property->unique_id,
                 $confirmationUrl,
-                $imageUrl,
                 $callingUrl
             );
+
             if (isset($response['error']) && $response['error']) {
                 $failureCount++;
                 $failedUsers[] = $userInfo->user->name;

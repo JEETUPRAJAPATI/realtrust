@@ -130,14 +130,14 @@ class Property extends Model
     {
         return $this->BelongsTo(Locality::class, 'locality', 'id');
     }
-    
+
 
 
     // Relationship with City
-    // public function cities()
-    // {
-    //     return $this->belongsTo(Cities::class, 'city', 'city_id');
-    // }
+    public function cities()
+    {
+        return $this->belongsTo(Cities::class, 'city', 'city_id');
+    }
     // public function rating()
     // {
     //     return $this->hasMany(Rating::class, 'property_id');

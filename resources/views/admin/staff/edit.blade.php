@@ -44,7 +44,7 @@
                     <div class="form-group form-float mb-4">
                         <div class="form-line {{ $errors->has('mobile') ? 'focused error' : '' }}">
                             <label class="form-label">Mobile</label>
-                            <input type="tel" placeholder="Enter Mobile" name="mobile" class="form-control" value="{{ old('mobile',$staff->mobile_no) }}" disabled>
+                            <input type="tel" placeholder="Enter Mobile" name="mobile" class="form-control" value="{{ old('mobile',$staff->mobile_no) }}">
                         </div>
                         @error('mobile')
                         <span class="text-danger">{{ $message }}</span>
@@ -53,8 +53,8 @@
 
                     @if(Storage::disk('public')->exists('staff/'.$staff->image))
                     <div class="form-group">
-                        <img src="{{Storage::url('staff/'.$staff->image)}}" id="staff-imgsrc" alt="{{$staff->name}}"  class="img-thumbnail"
-                        style="max-width: 200px;">
+                        <img src="{{Storage::url('staff/'.$staff->image)}}" id="staff-imgsrc" alt="{{$staff->name}}" class="img-thumbnail"
+                            style="max-width: 200px;">
                     </div>
                     @endif
                     <div class="mb-3">

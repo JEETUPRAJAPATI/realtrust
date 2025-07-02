@@ -24,5 +24,4 @@ class ScheduleVisitUserList extends Model
     {
         return $this->belongsTo(Property::class, 'property_id', 'unique_id');
     }
-
 }

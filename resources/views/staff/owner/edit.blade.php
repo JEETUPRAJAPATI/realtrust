@@ -34,6 +34,24 @@
                         <span class="text-danger">{{ $message }}</span>
                         @enderror
                     </div>
+                    <div class="form-group form-float">
+                        <label class="form-label">Email <span class="text-danger">*</span></label>
+                        <div class="form-line">
+                            <input type="text" name="email" placeholder="Enter Email" class="form-control" value="{{ old('email', $owners->email) }}">
+                        </div>
+                        @error('email')
+                        <span class="text-danger">{{ $message }}</span>
+                        @enderror
+                    </div>
+                    <div class="form-group form-float">
+                        <div class="form-line {{ $errors->has('mobile') ? 'focused error' : '' }}">
+                            <label class="form-label">Mobile</label>
+                            <input type="text" placeholder=" Enter Owner's Mobile Number " name="mobile" class="form-control" value="{{ old('mobile', $owners->mobile_no) }}">
+                        </div>
+                        @error('mobile')
+                        <span class="text-danger">{{ $message }}</span>
+                        @enderror
+                    </div>
 
 
                     <!-- <div class="form-group form-float">
@@ -58,8 +76,8 @@
                     @endif
                     @if(Storage::disk('public')->exists('owners/'.$owners->image))
                     <div class="form-group mt-3">
-                        <img src="{{ Storage::url('owners/'.$owners->image) }}" id="owner-imgsrc-edit" alt="{{ $owners->name }}"  class="img-thumbnail"
-                        style="max-width: 200px;">
+                        <img src="{{ Storage::url('owners/'.$owners->image) }}" id="owner-imgsrc-edit" alt="{{ $owners->name }}" class="img-thumbnail"
+                            style="max-width: 200px;">
                     </div>
                     @endif
                     <!-- Image Upload Button -->
@@ -74,8 +92,6 @@
                     <button type="submit" class="btn btn-primary  waves-effect">
                         <span>Update</span>
                     </button>
-
-
                 </form>
             </div>
         </div>

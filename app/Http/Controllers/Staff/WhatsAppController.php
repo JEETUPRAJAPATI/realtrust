@@ -10,10 +10,12 @@ use App\Models\Property;
 use App\Models\ScheduleVisit;
 use App\Models\WhatsappMessage;
 use App\Models\WhatsappReply;
+use App\Services\InteraktWhatsAppService;
 use App\Services\TwilioWhatsAppService;
 use App\Services\WhatsAppService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Twilio\Rest\Client;
 use Yoeunes\Toastr\Facades\Toastr;
@@ -88,184 +90,149 @@ class WhatsAppController extends Controller
 
     // whatsapp send template meta
 
-    protected $whatsAppService;
+    protected $InteraktWhatsAppService;
 
-    public function __construct(WhatsAppService $whatsAppService)
+    public function __construct(InteraktWhatsAppService $InteraktWhatsAppService)
     {
-        $this->whatsAppService = $whatsAppService;
+        $this->InteraktWhatsAppService = $InteraktWhatsAppService;
     }
 
-    public function sendTimeConfirmation123($properties_id)
-    {
-        // dd($properties_id);
-        $property = Property::with('owner')->where('unique_id', $properties_id)->firstOrFail();
-        $phoneNumber = $property->owner->mobile_no;
-        if (!str_starts_with($phoneNumber, '+91')) {
-            $phoneNumber = '+91' . ltrim($phoneNumber, '0');
-        }
-        $propertyId =   $property->unique_id;
-        $owner_id =   $property->owner_id;
-        $confirmationUrl = $propertyId;
-        $imageUrl = asset('storage/property/' . $property->owner_id . '/' . $property->unique_id . '/' . $property->image);
-
-        $templateName = 'owner_confirmation_time';
-        $languageCode = 'en_US';
-        $variables = [
-            $property->owner->name,
-            $property->title,
-            $property->locality . ', ' . $property->city,
-            $property->bhk,
-            $property->price
-        ];
-        // dd($variables);
-        $response = $this->whatsAppService->sendImageTemplateMessage($phoneNumber, $templateName, $languageCode, $variables, $confirmationUrl, $imageUrl);
-        // Handle the response
-        if (isset($response['error']) && $response['error'] === true) {
-            // Log failed message
-            WhatsappMessage::create([
-                'owner_id' => $property->owner_id,
-                'unique_id' => $property->unique_id,
-                'phone_number' => $phoneNumber,
-                'template_name' => $templateName,
-                'variables' => $variables,
-                'status' => 'failed',
-                'api_response' => $response['message'],
-            ]);
-            // return response()->json(['error' => true, 'message' => 'Failed to send message: ' . $response['message']], 500);
-            Toastr::error('Failed to send message: ' . $response['message'], 'Error');
-        } else {
-            // Log successful message
-            WhatsappMessage::create([
-                'owner_id' => $property->owner_id,
-                'unique_id' => $property->unique_id,
-                'phone_number' => $phoneNumber,
-                'template_name' => $templateName,
-                'variables' => $variables,
-                'message_id' => $response['messages'][0]['id'] ?? null, // Assuming response contains message ID
-                'status' => 'sent',
-                'api_response' => $response,
-                'sent_at' => now(),
-            ]);
-
-            Toastr::success('Time confirmation message sent successfully to Owner!', 'Success');
-        }
-        return back();
-    }
     public function sendTimeConfirmation($properties_id)
     {
-        // dd($properties_id);
-        $property = Property::with('owner')->where('unique_id', $properties_id)->firstOrFail();
-        $phoneNumber = $property->owner->mobile_no;
-        if (!str_starts_with($phoneNumber, '+91')) {
-            $phoneNumber = '+91' . ltrim($phoneNumber, '0');
-        }
-        $propertyId =   $property->unique_id;
-        $owner_id =   $property->owner_id;
-        $confirmationUrl = $propertyId;
-        $imageUrl = asset('storage/property/' . $property->owner_id . '/' . $property->unique_id . '/' . $property->image);
+        try {
+            $property = Property::with('owner', 'localities', 'cities')->where('unique_id', $properties_id)->firstOrFail();
+            // dd($property);
+            $phoneNumber = $property->owner->mobile_no;
+            if (!str_starts_with($phoneNumber, '+91')) {
+                $phoneNumber = '+91' . ltrim($phoneNumber, '0');
+            }
+            $propertyId =   $property->unique_id;
+            $owner_id =   $property->owner_id;
+            $confirmationUrl = $propertyId;
+            $imageUrl = asset('storage/property/' . $property->owner_id . '/' . $property->unique_id . '/' . $property->image);
 
-        $templateName = 'owner_confirmation_time';
-        $languageCode = 'en_US';
-        $variables = [
-            $property->owner->name,
-            $property->title,
-            $property->locality . ', ' . $property->city,
-            $property->bhk,
-            $property->price
-        ];
-        // dd($variables);
-        $response = $this->whatsAppService->sendImageTemplateMessage($phoneNumber, $templateName, $languageCode, $variables, $confirmationUrl, $imageUrl);
-        // Handle the response
-        if (isset($response['error']) && $response['error'] === true) {
-            // Log failed message
-            WhatsappMessage::create([
-                'owner_id' => $property->owner_id,
-                'unique_id' => $property->unique_id,
-                'phone_number' => $phoneNumber,
-                'template_name' => $templateName,
-                'variables' => $variables,
-                'status' => 'failed',
-                'api_response' => $response['message'],
-            ]);
-            // return response()->json(['error' => true, 'message' => 'Failed to send message: ' . $response['message']], 500);
-            Toastr::error('Failed to send message: ' . $response['message'], 'Error');
-        } else {
-            // Log successful message
-            WhatsappMessage::create([
-                'owner_id' => $property->owner_id,
-                'unique_id' => $property->unique_id,
-                'phone_number' => $phoneNumber,
-                'template_name' => $templateName,
-                'variables' => $variables,
-                'message_id' => $response['messages'][0]['id'] ?? null, // Assuming response contains message ID
-                'status' => 'sent',
-                'api_response' => $response,
-                'sent_at' => now(),
-            ]);
+            $templateName = 'owner_confirm_timing';
+            $languageCode = 'en';
+            $variables = [
+                $property->owner->name,
+                $property->title,
+                $property->localities->name . ', ' . $property->cities->city_name,
+                $property->bhk,
+                $property->price
+            ];
+            // dd($variables);
+            // $response = $this->whatsAppService->sendImageTemplateMessage($phoneNumber, $templateName, $languageCode, $variables, $confirmationUrl, $imageUrl);
+            $response = $this->InteraktWhatsAppService->sendOwnerConfirmTiming($phoneNumber, $property->owner->name, $property->title, $property->localities->name . ', ' . $property->cities->city_name, $property->bhk, $property->unique_id);
 
-            Toastr::success('Time confirmation message sent successfully to Owner!', 'Success');
+            if (isset($response['error']) && $response['error'] === true) {
+                // Log failed message
+                WhatsappMessage::create([
+                    'owner_id' => $property->owner_id,
+                    'unique_id' => $property->unique_id,
+                    'phone_number' => $phoneNumber,
+                    'template_name' => $templateName,
+                    'variables' => $variables,
+                    'status' => 'failed',
+                    'api_response' => $response['message'],
+                ]);
+                Toastr::error('Failed to send message: ' . $response['message'], 'Error');
+            } else {
+                // Log successful message
+                WhatsappMessage::create([
+                    'owner_id' => $property->owner_id,
+                    'unique_id' => $property->unique_id,
+                    'phone_number' => $phoneNumber,
+                    'template_name' => $templateName,
+                    'variables' => $variables,
+                    'message_id' => $response['messages'][0]['id'] ?? null, // Assuming response contains message ID
+                    'status' => 'sent',
+                    'api_response' => $response,
+                    'sent_at' => now(),
+                ]);
+
+                Toastr::success('Time confirmation message sent successfully to Owner!', 'Success');
+            }
+            return back();
+        } catch (\Exception $e) {
+            Log::error('sendTimeConfirmation Error', ['message' => $e->getMessage()]);
+            Toastr::error('Something went wrong while sending confirmation message.', 'Error');
+            return back();
         }
-        return back();
     }
     public function sendTimeConfirmationFieldManager($field_manager_id, $property_id)
     {
-        // dd($field_manager_id, $property_id);
-        $result = ConformTiming::with('field_manager', 'properties')->where('field_manager_id', $field_manager_id)->where('property_id', $property_id)->first();
+        try {
+            // dd($field_manager_id, $property_id);
+            $result = ConformTiming::with('field_manager', 'properties', 'properties.localities', 'properties.cities')->where('field_manager_id', $field_manager_id)->where('property_id', $property_id)->first();
+            // dd($result->properties->cities);
+            if ($result->timing == null) {
+                Toastr::error('First Time confirmation to Owner!', 'error');
+                return back();
+            }
+            $phoneNumber = $result->field_manager->mobile_no;
+            if (!str_starts_with($phoneNumber, '+91')) {
+                $phoneNumber = '+91' . ltrim($phoneNumber, '0');
+            }
 
-        if ($result->timing == null) {
-            Toastr::error('First Time confirmation to Owner!', 'error');
+            $confirmationUrl = $result->property_id;
+            $imageUrl = asset('storage/property/' . $result->properties->owner_id . '/' . $result->properties->unique_id . '/' . $result->properties->image);
+
+            $templateName = 'field_manager_confirm_timing';
+            $languageCode = 'en';
+            $variables = [
+                $result->field_manager->name,
+                $result->properties->title,
+                $result->properties->localities->name . ', ' . $result->properties->cities->city_name,
+                $result->properties->bhk,
+                $result->properties->price
+            ];
+            // dd($variables);
+            // $response = $this->whatsAppService->sendImageTemplateMessage($phoneNumber, $templateName, $languageCode, $variables, $confirmationUrl, $imageUrl);
+            $response = $this->InteraktWhatsAppService->sendFieldManagerConfirmTiming(
+                $phoneNumber,
+                $result->properties->owner->name,
+                $result->properties->title,
+                $result->properties->localities->name . ', ' . $result->properties->cities->city_name,
+                $result->properties->bhk,
+                $result->properties->unique_id
+            );
+
+
+            // Handle the response
+            if (isset($response['error']) && $response['error'] === true) {
+                // Log failed message
+                WhatsappMessage::create([
+                    'field_manager_id' =>  $result->field_manager->id,
+                    'unique_id' => $result->property_id,
+                    'phone_number' => $phoneNumber,
+                    'template_name' => $templateName,
+                    'variables' => $variables,
+                    'status' => 'failed',
+                    'api_response' => $response['message'],
+                ]);
+                Toastr::error('Failed to send message: ' . $response['message'], 'Error');
+            } else {
+                // Log successful message
+                WhatsappMessage::create([
+                    'field_manager_id' =>  $result->field_manager->id,
+                    'unique_id' => $result->property_id,
+                    'phone_number' => $phoneNumber,
+                    'template_name' => $templateName,
+                    'variables' => $variables,
+                    'message_id' => $response['messages'][0]['id'] ?? null, // Assuming response contains message ID
+                    'status' => 'sent',
+                    'api_response' => $response,
+                    'sent_at' => now(),
+                ]);
+
+                Toastr::success('Time confirmation message sent successfully to Field Manager!', 'Success');
+            }
+            return back();
+        } catch (\Exception $e) {
+            Log::error('Error in sendTimeConfirmationFieldManager', ['error' => $e->getMessage()]);
+            Toastr::error('Something went wrong. Try again later.', 'Error');
             return back();
         }
-        $phoneNumber = $result->field_manager->mobile_no;
-        if (!str_starts_with($phoneNumber, '+91')) {
-            $phoneNumber = '+91' . ltrim($phoneNumber, '0');
-        }
-
-        $confirmationUrl = $result->property_id;
-        $imageUrl = asset('storage/property/' . $result->properties->owner_id . '/' . $result->properties->unique_id . '/' . $result->properties->image);
-
-        $templateName = 'field_manager_confirmation';
-        $languageCode = 'en';
-        $variables = [
-            $result->field_manager->name,
-            $result->properties->title,
-            $result->properties->locality . ', ' . $result->properties->city,
-            $result->properties->bhk,
-            $result->properties->price
-        ];
-        // dd($variables);
-        $response = $this->whatsAppService->sendImageTemplateMessage($phoneNumber, $templateName, $languageCode, $variables, $confirmationUrl, $imageUrl);
-        // Handle the response
-        if (isset($response['error']) && $response['error'] === true) {
-            // Log failed message
-            WhatsappMessage::create([
-                'field_manager_id' =>  $result->field_manager->id,
-                'unique_id' => $result->property_id,
-                'phone_number' => $phoneNumber,
-                'template_name' => $templateName,
-                'variables' => $variables,
-                'status' => 'failed',
-                'api_response' => $response['message'],
-            ]);
-            Toastr::error('Failed to send message: ' . $response['message'], 'Error');
-        } else {
-            // Log successful message
-            WhatsappMessage::create([
-                'field_manager_id' =>  $result->field_manager->id,
-                'unique_id' => $result->property_id,
-                'phone_number' => $phoneNumber,
-                'template_name' => $templateName,
-                'variables' => $variables,
-                'message_id' => $response['messages'][0]['id'] ?? null, // Assuming response contains message ID
-                'status' => 'sent',
-                'api_response' => $response,
-                'sent_at' => now(),
-            ]);
-
-            Toastr::success('Time confirmation message sent successfully to Field Manager!', 'Success');
-        }
-
-        return back();
     }
     // public function sendTimeConfirmation($ownerId)
     // {
@@ -345,7 +312,7 @@ class WhatsAppController extends Controller
             } else {
                 // $visiterInfo = Property::with('owner')->where('unique_id', $property_id)->firstOrFail();
                 $visiterInfo = ConformTiming::with('field_manager', 'properties.owner')->where('property_id', $property_id)->first();
-    
+
                 return view('conform-time', compact('visiterInfo'));
             }
         }
@@ -353,7 +320,7 @@ class WhatsAppController extends Controller
     public function confirmTimingSubmit(Request $request)
     {
         // dd($request->all());
-    
+
         $validator = Validator::make($request->all(), [
             'property_id' => 'required',
             'name' => 'required|string|max:255',
@@ -363,19 +330,18 @@ class WhatsAppController extends Controller
             'key_person_number' => 'nullable|digits:10',
             'date' => 'required|date',
             'startTime' => 'required|date_format:H:i',
-            'endTime' => 'required|date_format:H:i|after:startTime',
-
+            'endTime' => 'required|date_format:H:i|after:startTime'
         ]);
-            
+
         $propertyId = $request->input('property_id');
         $visit = ConformTiming::where('property_id', $propertyId)->first();
         $date = $request->date; // 2025-04-26
-        $startTime = $request->startTime; 
-        $endTime = $request->endTime; 
-        
+        $startTime = $request->startTime;
+        $endTime = $request->endTime;
+
         $startDateTime = \Carbon\Carbon::parse("$date $startTime");
         $endDateTime = \Carbon\Carbon::parse("$date $endTime");
-        
+
         // Format the datetime into your required format
         $formattedTimeRange = $startDateTime->format('m/d/Y h:i A') . ' - ' . $endDateTime->format('m/d/Y h:i A');
         // Check if validation fails
@@ -385,10 +351,10 @@ class WhatsAppController extends Controller
                 ->withErrors($validator)
                 ->withInput();
         } else {
-            
+
             $image = $request->file('gate_pass');
             $slug  = Str::slug($request->name);
-    
+
             if (isset($image)) {
                 $currentDate = Carbon::now()->toDateString();
                 $imagename = $slug . '-' . $currentDate . '-' . uniqid() . '.' . $image->getClientOriginalExtension();
@@ -405,7 +371,7 @@ class WhatsAppController extends Controller
 
             $field_manager = $request->input('file_manager') ?? '';
             $conform_timing = $request->input('conform_timing') ?? '';
-            
+
             // dd($visit);
             if (!empty($field_manager) &&  !empty($conform_timing)) {
 
@@ -415,7 +381,7 @@ class WhatsAppController extends Controller
                 return view('conform-time-success', ['message' => 'Your request has been processed successfully. Thank you! ']);
             }
             // $datetime = Carbon::createFromFormat('Y-m-d h:i A', $request->input('datetime'), 'UTC');
-            $datetimeRange = $request->input('datetime'); 
+            $datetimeRange = $request->input('datetime');
             // dd($datetime);
             if (!$visit) {
                 // Insert into the schedule_visits table

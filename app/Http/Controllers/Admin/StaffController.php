@@ -78,6 +78,7 @@ class StaffController extends Controller
             'name' => 'required|string|max:255',
             'image' => 'nullable|image|mimes:jpeg,jpg,png,webp,avif|max:2048',
             'email' => 'required|unique:staff,email,' . $id,
+            'mobile' => 'required|digits:15|unique:staff,mobile_no,' . $id,
         ]);
 
         $image = $request->file('image');
@@ -100,6 +101,7 @@ class StaffController extends Controller
         }
         $staff->name = $request->name;
         $staff->image = $imagename;
+        $staff->mobile_no = $request->mobile;
         $staff->email = $request->email;
         $staff->save();
 
@@ -116,75 +118,77 @@ class StaffController extends Controller
         Toastr::success('message', 'Staff deleted successfully.');
         return back();
     }
-    public function permission ($id) {
+    public function permission($id)
+    {
         $permission = StaffPermission::where('staff_id', $id)->first();
         return view('admin.staff.permissions', compact('permission'));
     }
-    public function updatePermission (Request $request) {
+    public function updatePermission(Request $request)
+    {
         $type = $request->type;
         $user = StaffPermission::where('staff_id', $request->id)->first();
-        
-            if ($user) {
-                switch ($type) {
-                    case 'owner':
-                        $user->owner = $request->status;
-                        break;
-                    case 'owner_number':
-                        $user->owner_number = $request->status;
-                        break;    
-                    case 'users':
-                        $user->users = $request->status;
-                        break;
-                    case 'property':
-                        $user->property = $request->status;
-                        break;
-                    case 'fieldManager_list':
-                        $user->fieldManager_list = $request->status;
-                        break;
-                    case 'schedule_visit':
-                        $user->schedule_visit = $request->status;
-                        break;
-                    case 'visiter_list':
-                        $user->visiter_list = $request->status;
-                        break;
-                    case 'recording':
-                        $user->recording = $request->status;
-                        break;
-                    case 'post_list':
-                        $user->post_list = $request->status;
-                        break;
-                    case 'inquiry_list':
-                        $user->inquiry_list = $request->status;
-                        break;
-                    case 'settings':
-                        $user->settings = $request->status;
-                        break;
-                }
-        
-                $user->update();
-        
-                return response()->json([
-                    'success' => 200,
-                    'message' => 'Status updated successfully!',
-                    'data' => $user->fresh()
-                ]);
+
+        if ($user) {
+            switch ($type) {
+                case 'owner':
+                    $user->owner = $request->status;
+                    break;
+                case 'owner_number':
+                    $user->owner_number = $request->status;
+                    break;
+                case 'users':
+                    $user->users = $request->status;
+                    break;
+                case 'property':
+                    $user->property = $request->status;
+                    break;
+                case 'fieldManager_list':
+                    $user->fieldManager_list = $request->status;
+                    break;
+                case 'schedule_visit':
+                    $user->schedule_visit = $request->status;
+                    break;
+                case 'visiter_list':
+                    $user->visiter_list = $request->status;
+                    break;
+                case 'recording':
+                    $user->recording = $request->status;
+                    break;
+                case 'post_list':
+                    $user->post_list = $request->status;
+                    break;
+                case 'inquiry_list':
+                    $user->inquiry_list = $request->status;
+                    break;
+                case 'settings':
+                    $user->settings = $request->status;
+                    break;
             }
-        
+
+            $user->update();
+
             return response()->json([
-                'success' => 404,
-                'message' => 'User not found'
+                'success' => 200,
+                'message' => 'Status updated successfully!',
+                'data' => $user->fresh()
             ]);
+        }
+
+        return response()->json([
+            'success' => 404,
+            'message' => 'User not found'
+        ]);
     }
-    public function updatePassword (Request $request, $id) {
+    public function updatePassword(Request $request, $id)
+    {
         $request->validate([
             'password' => 'required|min:6|confirmed',
         ]);
-        
+
         $staff = Staff::find($id);
         $staff->password = Hash::make($request->password);
         $staff->save();
         Toastr::success('message', 'Password updated successfully.');
         return back();
-
     }
 }

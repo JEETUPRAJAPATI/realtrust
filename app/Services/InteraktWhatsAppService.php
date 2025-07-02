@@ -2,7 +2,10 @@
 
 namespace App\Services;
 
+use App\Models\Property;
 use GuzzleHttp\Client;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class InteraktWhatsAppService
@@ -14,10 +17,112 @@ class InteraktWhatsAppService
     public function __construct()
     {
         $this->client = new Client();
-        $this->baseUrl = 'https://api.interakt.ai/v1/public/message/'; // Interakt message endpoint
+        $this->baseUrl = 'https://api.interakt.ai/v1/public/message'; // Interakt message endpoint
         $this->apiKey = env('INTERAKT_API_KEY'); // Store your Interakt API Key in .env
+        Log::info(' $this->baseUrl ', ['response baseUrl' => $this->baseUrl]);
+        Log::info(' $this->apiKey ', ['response apiKey' => $this->apiKey]);
     }
 
+    // cfdd7d88-cbb8-4101-bab0-e407c4637c47
+
+    public function handle(Request $request)
+    {
+        $data = $request->all();
+        $phone = $data['phoneNumber'] ?? null;
+        $payload = $data['buttonPayload'] ?? null;
+        $messageText = strtolower($data['messageText'] ?? '');
+
+        if ($messageText === 'hi') {
+            return $this->sendWelcomeMessage($phone);
+        }
+
+        if ($payload === 'rent') {
+            return $this->sendLocalityOptions($phone);
+        }
+
+        if (str_starts_with($payload, 'locality:')) {
+            $locality = explode(':', $payload)[1];
+            return $this->sendTopPropertiesCarousel($phone, $locality);
+        }
+
+        return response()->json(['status' => 'ignored']);
+    }
+    private function sendWelcomeMessage($phone)
+    {
+        return $this->sendTemplate($phone, 'welcome_template', ['Friend'], [
+            '0' => ['rent'],
+            '1' => ['sell']
+        ]);
+    }
+
+
+
+    private function sendLocalityOptions($phone)
+    {
+        return $this->sendTemplate($phone, 'locality_selector_template', [], [
+            '0' => ['locality:banjara_hills'],
+            '1' => ['locality:whitefield'],
+            '2' => ['locality:sector_62']
+        ]);
+    }
+
+    private function sendTopPropertiesCarousel($phone, $locality)
+    {
+        $properties = Property::where('locality', $locality)->take(5)->get();
+
+        foreach ($properties as $property) {
+            $this->sendTemplate(
+                $phone,
+                'property_carousel_template',
+                [
+                    $property->title,
+                    $property->bhk,
+                    $property->locality,
+                    $property->available_for
+                ],
+                [
+                    '0' => [$property->unique_id] // Schedule Visit URL param
+                ]
+            );
+        }
+
+        return response()->json(['message' => 'Properties sent.']);
+    }
+
+    private function sendTemplate($phone, $templateName, $body = [], $buttonValues = [])
+    {
+        $payload = [
+            'fullPhoneNumber' => $phone,
+            'callbackData' => $templateName,
+            'type' => 'Template',
+            'template' => [
+                'name' => $templateName,
+                'languageCode' => 'en',
+                'bodyValues' => $body,
+                'buttonValues' => (object)$buttonValues
+            ]
+        ];
+
+
+
+        try {
+            $response = Http::withHeaders([
+                'Authorization' => 'Basic ' . env('INTERAKT_API_KEY'),
+                'Content-Type' => 'application/json',
+            ])->post('https://api.interakt.ai/v1/public/message/', $payload);
+
+            $result = json_decode($response->getBody(), true);
+            Log::info("✅ Sent template [$templateName]", ['response' => $result]);
+
+            return $result;
+        } catch (\Exception $e) {
+            Log::error("❌ Failed to send [$templateName]", [
+                'error' => $e->getMessage(),
+                'payload' => $payload
+            ]);
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
 
     /**
      * Send 'schedule_visit_user' template message
@@ -39,37 +144,33 @@ class InteraktWhatsAppService
     public function sendScheduleVisitUser(string $phone, string $userName, string $propertyName, string $location, string $callbackData = 'schedule_visit_user')
     {
         $payload = [
-            'fullPhoneNumber' => $phone,
+            'countryCode' => '+91',
+            'phoneNumber' => $phone,
             'callbackData' => $callbackData,
             'type' => 'Template',
-            'data' => [
-                'templateName' => 'schedule_visit_user',
+            'template' => [
+                'name' => 'schedule_visit_user',
                 'languageCode' => 'en',
-                'templateData' => [
-                    'body' => [
-                        ['text' => $userName],       // {{1}}
-                        ['text' => $propertyName],   // {{2}}
-                        ['text' => $location],       // {{3}}
-                    ]
+                'bodyValues' => [
+                    $userName,
+                    $propertyName,
+                    $location
                 ]
             ]
         ];
 
         try {
-            $response = $this->client->post($this->baseUrl, [
-                'headers' => [
-                    'Authorization' => 'Bearer ' . $this->apiKey,
-                    'Content-Type' => 'application/json',
-                ],
-                'json' => $payload
-            ]);
+            $response = Http::withHeaders([
+                'Authorization' => 'Basic ' . env('INTERAKT_API_KEY'),
+                'Content-Type' => 'application/json',
+            ])->post('https://api.interakt.ai/v1/public/message/', $payload);
 
             $result = json_decode($response->getBody(), true);
-            Log::info("✅ Interakt: schedule_visit_user sent", ['response' => $result]);
+            Log::info("Interakt: schedule_visit_user sent", ['response' => $result]);
 
             return $result;
         } catch (\Exception $e) {
-            Log::error("❌ Interakt: schedule_visit_user failed", [
+            Log::error("Interakt: schedule_visit_user failed", [
                 'error' => $e->getMessage(),
                 'payload' => $payload
             ]);
@@ -102,6 +203,26 @@ class InteraktWhatsAppService
     //     'Banjara Hills, Hyderabad'
     // );
 
+    // https://api.interakt.ai/v1/public/message/
+    // POST
+    // Payload
+    // {
+    //     "countryCode": "+91",
+    //     "phoneNumber": "9142950245",
+    //     "callbackData": "notify_pending_user_on_scheduled_visit",
+    //     "type": "Template",
+    //     "template": {
+    //       "name": "notify_pending_user_on_scheduled_visit",
+    //       "languageCode": "en",
+    //       "bodyValues": [
+    //         "Ritu Kumari",                  // {{1}} → user name
+    //         "Dream Residency Flat",         // {{2}} → property name
+    //         "Banjara Hills, Bangalore"      // {{3}} → location
+    //       ]
+    //     }
+    //   }
+
+
     public function sendNotifyPendingUserOnScheduledVisit(string $phone, string $userName, string $propertyName, string $location, string $callbackData = 'notify_pending_user_on_scheduled_visit')
     {
         $payload = [
@@ -131,11 +252,11 @@ class InteraktWhatsAppService
             ]);
 
             $result = json_decode($response->getBody(), true);
-            Log::info("✅ Interakt: notify_pending_user_on_scheduled_visit sent", ['response' => $result]);
+            Log::info("Interakt: notify_pending_user_on_scheduled_visit sent", ['response' => $result]);
 
             return $result;
         } catch (\Exception $e) {
-            Log::error("❌ Interakt: notify_pending_user_on_scheduled_visit failed", [
+            Log::error("Interakt: notify_pending_user_on_scheduled_visit failed", [
                 'error' => $e->getMessage(),
                 'payload' => $payload
             ]);
@@ -168,6 +289,7 @@ class InteraktWhatsAppService
     //     'Banjara Hills, Hyderabad',
     //     '2 BHK',
     //     '12345' // propertyId used in the URL
+
     // );
     public function sendOwnerConfirmTiming(string $phone, string $ownerName, string $propertyName, string $address, string $bhkType, string $propertyId, string $callbackData = 'owner_confirm_timing')
     {
@@ -175,46 +297,45 @@ class InteraktWhatsAppService
             'fullPhoneNumber' => $phone,
             'callbackData' => $callbackData,
             'type' => 'Template',
-            'data' => [
-                'templateName' => 'owner_confirm_timing',
+            'template' => [
+                'name' => 'owner_confirm_timing',
                 'languageCode' => 'en',
-                'templateData' => [
-                    'body' => [
-                        ['text' => $ownerName],     // {{1}}
-                        ['text' => $propertyName],  // {{2}}
-                        ['text' => $address],       // {{3}}
-                        ['text' => $bhkType],       // {{4}}
-                    ],
-                    'buttons' => [
-                        [
-                            'type' => 'url',
-                            'text' => 'Confirm Timing',
-                            'url' => 'https://admin.realtrust.in/conform-timing/' . $propertyId // {{6}}
-                        ]
-                    ]
+                'bodyValues' => [
+                    $ownerName,
+                    $propertyName,
+                    $address,
+                    $bhkType
+                ],
+                'buttonValues' => (object)[
+                    "0" => [$propertyId] // Must be an object, not array
                 ]
             ]
         ];
 
+        // Log the outgoing payload
+        Log::info("sendOwnerConfirmTiming payload", ['response' => $payload]);
+
         try {
-            $response = $this->client->post($this->baseUrl, [
-                'headers' => [
-                    'Authorization' => 'Bearer ' . $this->apiKey,
-                    'Content-Type' => 'application/json',
-                ],
-                'json' => $payload
-            ]);
 
-            $result = json_decode($response->getBody(), true);
-            Log::info("✅ Interakt: owner_confirm_timing sent", ['response' => $result]);
+            Log::info('Final Payload Being Sent', $payload);
 
-            return $result;
+            $response = Http::withHeaders([
+                'Authorization' => 'Basic ' . env('INTERAKT_API_KEY'),
+                'Content-Type' => 'application/json',
+            ])->post('https://api.interakt.ai/v1/public/message/', $payload);
+
+            Log::info('API Response Status', ['status' => $response->status()]);
+            Log::info('API Response Body', ['body' => $response->body()]);
+
+
+            Log::info("Interakt: owner_confirm_timing sent", ['response' => $response]);
+            return $response->json();
         } catch (\Exception $e) {
-            Log::error("❌ Interakt: owner_confirm_timing failed", [
+
+            Log::error("Interakt: owner_confirm_timing failed", [
                 'error' => $e->getMessage(),
                 'payload' => $payload
             ]);
-
             return [
                 'success' => false,
                 'message' => 'Failed to send WhatsApp message.',
@@ -222,6 +343,7 @@ class InteraktWhatsAppService
             ];
         }
     }
+
 
     /**
      * Send 'field_manager_confirm_timing' template to Field Manager
@@ -235,55 +357,55 @@ class InteraktWhatsAppService
      * @return array                   API response
      */
 
-    //  $response = $interakt->sendFieldManagerConfirmTiming(
-    //     '+919512087056',
-    //     'Ravi Singh',
-    //     'Palm Grove Apartments',
-    //     'Sector 62, Noida',
-    //     '3 BHK'
+    //       response = $interakt->sendFieldManagerConfirmTiming(
+    //      '+919512087056',
+    //      'Ravi Singh',
+    //      'Palm Grove Apartments',
+    //      'Sector 62, Noida',
+    //      '3 BHK'
     // );
-    public function sendFieldManagerConfirmTiming(string $phone, string $managerName, string $propertyName, string $address, string $bhkType, string $callbackData = 'field_manager_confirm_timing')
+    public function sendFieldManagerConfirmTiming(string $phone, string $managerName, string $propertyName, string $address, string $bhkType, string $propertyId, string $callbackData = 'field_manager_confirm_timing')
     {
         $payload = [
             'fullPhoneNumber' => $phone,
             'callbackData' => $callbackData,
             'type' => 'Template',
-            'data' => [
-                'templateName' => 'field_manager_confirm_timing',
+            'template' => [
+                'name' => 'field_manager_confirm_timing',
                 'languageCode' => 'en',
-                'templateData' => [
-                    'body' => [
-                        ['text' => $managerName],     // {{1}}
-                        ['text' => $propertyName],    // {{2}}
-                        ['text' => $address],         // {{3}}
-                        ['text' => $bhkType],         // {{4}}
-                    ],
-                    'buttons' => [
-                        [
-                            'type' => 'url',
-                            'text' => 'Confirm Viewing',
-                            'url' => 'https://admin.realtrust.in/conformtiming/field_manager/' . urlencode($managerName) // dynamic {{1}} as part of URL
-                        ]
-                    ]
+                'bodyValues' => [
+                    $managerName,
+                    $propertyName,
+                    $address,
+                    $bhkType
+                ],
+                'buttonValues' => (object)[
+                    "0" => [$propertyId] // Must be an object, not array
                 ]
             ]
         ];
 
+        // Log the outgoing payload
+        Log::info("sendOwnerConfirmTiming payload", ['response' => $payload]);
+
         try {
-            $response = $this->client->post($this->baseUrl, [
-                'headers' => [
-                    'Authorization' => 'Bearer ' . $this->apiKey,
-                    'Content-Type' => 'application/json',
-                ],
-                'json' => $payload
-            ]);
 
-            $result = json_decode($response->getBody(), true);
-            Log::info("✅ Interakt: field_manager_confirm_timing sent", ['response' => $result]);
+            Log::info('Final Payload Being Sent', $payload);
 
-            return $result;
+            $response = Http::withHeaders([
+                'Authorization' => 'Basic ' . env('INTERAKT_API_KEY'),
+                'Content-Type' => 'application/json',
+            ])->post('https://api.interakt.ai/v1/public/message/', $payload);
+
+            Log::info('API Response Status', ['status' => $response->status()]);
+            Log::info('API Response Body', ['body' => $response->body()]);
+
+
+            Log::info("Interakt: owner_confirm_timing sent", ['response' => $response]);
+            return $response->json();
         } catch (\Exception $e) {
-            Log::error("❌ Interakt: field_manager_confirm_timing failed", [
+
+            Log::error("Interakt: field_manager_confirm_timing failed", [
                 'error' => $e->getMessage(),
                 'payload' => $payload
             ]);
@@ -324,69 +446,44 @@ class InteraktWhatsAppService
     //     'sess456'
     // );
 
-    public function sendVisitConfirmUser(
-        string $phone,
-        string $userName,
-        string $property,
-        string $bhkType,
-        string $scheduledTime,
-        string $address,
-        string $managerContact,
-        string $staffId,
-        string $sessionId,
-        string $callbackData = 'visit_confirm_user'
-    ) {
+    public function sendVisitConfirmUser(string $phone, string $userName, string $property, string $bhkType, string $scheduledTime, string $address, string $managerContact, string $confirmationUrl, string $callingUrl, string $callbackData = 'visit_confirm_user')
+    {
         $payload = [
             'fullPhoneNumber' => $phone,
             'callbackData' => $callbackData,
             'type' => 'Template',
-            'data' => [
-                'templateName' => 'visit_confirm_user',
+            'template' => [
+                'name' => 'visit_confirm_user',
                 'languageCode' => 'en',
-                'templateData' => [
-                    'body' => [
-                        ['text' => $userName],         // {{1}}
-                        ['text' => $property],         // {{2}}
-                        ['text' => $bhkType],          // {{3}}
-                        ['text' => $scheduledTime],    // {{4}}
-                        ['text' => $address],          // {{5}}
-                        ['text' => $managerContact],   // {{6}}
-                    ],
-                    'buttons' => [
-                        [
-                            'type' => 'url',
-                            'text' => 'Track Field Manager',
-                            'url' => 'https://admin.realtrust.in/field-manager/' . urlencode($managerContact)
-                        ],
-                        [
-                            'type' => 'url',
-                            'text' => 'Call To Staff',
-                            'url' => 'https://admin.realtrust.in/staff/place-call/' . urlencode($staffId) . '/' . urlencode($sessionId)
-                        ]
-                    ]
+                'bodyValues' => [
+                    $userName,
+                    $property,
+                    $bhkType,
+                    $scheduledTime,
+                    $address,
+                    $managerContact
+                ],
+                'buttonValues' =>  (object)[
+                    '0' => [$confirmationUrl],
+                    '1' => [$callingUrl]
                 ]
             ]
         ];
 
         try {
-            $response = $this->client->post($this->baseUrl, [
-                'headers' => [
-                    'Authorization' => 'Bearer ' . $this->apiKey,
-                    'Content-Type' => 'application/json',
-                ],
-                'json' => $payload
-            ]);
+            $response = Http::withHeaders([
+                'Authorization' => 'Basic ' . env('INTERAKT_API_KEY'),
+                'Content-Type' => 'application/json',
+            ])->post('https://api.interakt.ai/v1/public/message/', $payload);
 
             $result = json_decode($response->getBody(), true);
             Log::info('✅ Interakt: visit_confirm_user sent', ['response' => $result]);
-
             return $result;
         } catch (\Exception $e) {
             Log::error('❌ Interakt: visit_confirm_user failed', [
                 'error' => $e->getMessage(),
                 'payload' => $payload
             ]);
-
             return [
                 'success' => false,
                 'message' => 'Failed to send WhatsApp visit confirmation message.',
@@ -394,6 +491,7 @@ class InteraktWhatsAppService
             ];
         }
     }
+
 
 
     /**
@@ -432,52 +530,43 @@ class InteraktWhatsAppService
         string $address,
         string $gatePass,
         string $flatBlock,
-        string $staffId,
-        string $sessionId,
+        string $callingUrl,
         string $callbackData = 'notify_field_manager_to_visit'
     ) {
+
         $payload = [
             'fullPhoneNumber' => $phone,
             'callbackData' => $callbackData,
             'type' => 'Template',
-            'data' => [
-                'templateName' => 'notify_field_manager_to_visit',
+            'template' => [
+                'name' => 'notify_field_manager_to_visit',
                 'languageCode' => 'en',
-                'templateData' => [
-                    'body' => [
-                        ['text' => $name],           // {{1}}
-                        ['text' => $propertyTitle],  // {{2}}
-                        ['text' => $visitTime],      // {{3}}
-                        ['text' => $address],        // {{4}}
-                        ['text' => $gatePass],       // {{5}}
-                        ['text' => $flatBlock],      // {{6}}
-                    ],
-                    'buttons' => [
-                        [
-                            'type' => 'url',
-                            'text' => 'Call To Staff',
-                            'url' => 'https://admin.realtrust.in/staff/place-call/' . urlencode($staffId) . '/' . urlencode($sessionId)
-                        ]
-                    ]
+                'bodyValues' => [
+                    $name,
+                    $propertyTitle,
+                    $visitTime,
+                    $address,
+                    $gatePass,
+                    $flatBlock
+                ],
+                'buttonValues' =>  (object)[
+                    '0' => [$callingUrl] // maps to {{7}} and {{8}} in the button URL
                 ]
             ]
         ];
-
         try {
-            $response = $this->client->post($this->baseUrl, [
-                'headers' => [
-                    'Authorization' => 'Bearer ' . $this->apiKey,
-                    'Content-Type' => 'application/json',
-                ],
-                'json' => $payload
-            ]);
+            $response = Http::withHeaders([
+                'Authorization' => 'Basic ' . env('INTERAKT_API_KEY'),
+                'Content-Type' => 'application/json',
+            ])->post('https://api.interakt.ai/v1/public/message/', $payload);
+
 
             $result = json_decode($response->getBody(), true);
-            Log::info('✅ Interakt: notify_field_manager_to_visit sent', ['response' => $result]);
+            Log::info('Interakt: notify_field_manager_to_visit sent', ['response' => $result]);
 
             return $result;
         } catch (\Exception $e) {
-            Log::error('❌ Interakt: notify_field_manager_to_visit failed', [
+            Log::error('Interakt: notify_field_manager_to_visit failed', [
                 'error' => $e->getMessage(),
                 'payload' => $payload
             ]);
@@ -524,56 +613,44 @@ class InteraktWhatsAppService
         string $dateTime,
         string $location,
         string $fieldContact,
-        string $staffId,
-        string $sessionId,
-        string $callbackData = 'Join_pending_user_schedule_visit'
+        string $confirmationUrl,
+        string $callingUrl,
+        string $callbackData = 'join_pending_user_schedule_visit'
     ) {
         $payload = [
             'fullPhoneNumber' => $phone,
             'callbackData' => $callbackData,
             'type' => 'Template',
-            'data' => [
-                'templateName' => 'Join_pending_user_schedule_visit',
+            'template' => [
+                'name' => 'join_pending_user_schedule_visit',
                 'languageCode' => 'en',
-                'templateData' => [
-                    'body' => [
-                        ['text' => $userName],       // {{1}}
-                        ['text' => $propertyName],   // {{2}}
-                        ['text' => $dateTime],       // {{3}}
-                        ['text' => $location],       // {{4}}
-                        ['text' => $fieldContact],   // {{5}}
-                    ],
-                    'buttons' => [
-                        [
-                            'type' => 'url',
-                            'text' => 'View Field Manager',
-                            'url' => 'https://admin.realtrust.in/field-manager/' . urlencode($fieldContact)
-                        ],
-                        [
-                            'type' => 'url',
-                            'text' => 'Call Support',
-                            'url' => 'https://admin.realtrust.in/staff/place-call/' . urlencode($staffId) . '/' . urlencode($sessionId)
-                        ]
-                    ]
+                'bodyValues' => [
+                    $userName,
+                    $propertyName,
+                    $dateTime,
+                    $location,
+                    $fieldContact
+                ],
+                'buttonValues' => (object)[
+                    '0' => [$confirmationUrl],
+                    '1' => [$callingUrl]
                 ]
             ]
         ];
 
         try {
-            $response = $this->client->post($this->baseUrl, [
-                'headers' => [
-                    'Authorization' => 'Bearer ' . $this->apiKey,
-                    'Content-Type' => 'application/json',
-                ],
-                'json' => $payload
-            ]);
+            $response = Http::withHeaders([
+                'Authorization' => 'Basic ' . env('INTERAKT_API_KEY'),
+                'Content-Type' => 'application/json',
+            ])->post('https://api.interakt.ai/v1/public/message/', $payload);
+
 
             $result = json_decode($response->getBody(), true);
-            Log::info('✅ Interakt: Join_pending_user_schedule_visit sent', ['response' => $result]);
+            Log::info('Interakt: Join_pending_user_schedule_visit sent', ['response' => $result]);
 
             return $result;
         } catch (\Exception $e) {
-            Log::error('❌ Interakt: Join_pending_user_schedule_visit failed', [
+            Log::error('Interakt: Join_pending_user_schedule_visit failed', [
                 'error' => $e->getMessage(),
                 'payload' => $payload
             ]);
@@ -619,49 +696,35 @@ class InteraktWhatsAppService
         string $propertyTitle,
         string $bhkType,
         string $address,
-        string $propertyId,
-        string $staffId,
-        string $sessionId,
+        string $confirmationUrl,
+        string $callingUrl,
         string $callbackData = 'property_visit_confirmation_user'
     ) {
         $payload = [
             'fullPhoneNumber' => $phone,
             'callbackData' => $callbackData,
             'type' => 'Template',
-            'data' => [
-                'templateName' => 'property_visit_confirmation_user',
+            'template' => [
+                'name' => 'property_visit_confirmation_user_5g',
                 'languageCode' => 'en',
-                'templateData' => [
-                    'body' => [
-                        ['text' => $userName],        // {{1}}
-                        ['text' => $propertyTitle],   // {{2}}
-                        ['text' => $bhkType],         // {{3}}
-                        ['text' => $address],         // {{4}}
-                    ],
-                    'buttons' => [
-                        [
-                            'type' => 'url',
-                            'text' => 'Book Now',
-                            'url' => 'https://realtrust.in/property/' . urlencode($propertyId) . '#payments'
-                        ],
-                        [
-                            'type' => 'url',
-                            'text' => 'Connect Now',
-                            'url' => 'https://admin.realtrust.in/staff/conference-call/' . urlencode($staffId) . '/' . urlencode($sessionId)
-                        ]
-                    ]
+                'bodyValues' => [
+                    $userName,         // {{1}}
+                    $propertyTitle,    // {{2}}
+                    $bhkType,          // {{3}}
+                    $address           // {{4}}
+                ],
+                'buttonValues' =>  (object)[
+                    '0' => [$confirmationUrl], // {{5}} → e.g., property-123#payments
+                    '1' => [$callingUrl]          // {{6}} → e.g., staff456
                 ]
             ]
         ];
 
         try {
-            $response = $this->client->post($this->baseUrl, [
-                'headers' => [
-                    'Authorization' => 'Bearer ' . $this->apiKey,
-                    'Content-Type' => 'application/json',
-                ],
-                'json' => $payload
-            ]);
+            $response = Http::withHeaders([
+                'Authorization' => 'Basic ' . env('INTERAKT_API_KEY'),
+                'Content-Type' => 'application/json',
+            ])->post('https://api.interakt.ai/v1/public/message/', $payload);
 
             $result = json_decode($response->getBody(), true);
             Log::info('✅ Interakt: property_visit_confirmation_user sent', ['response' => $result]);
@@ -682,6 +745,7 @@ class InteraktWhatsAppService
     }
 
 
+
     /**
      * Send 'otp_verification_message' for OTP-based login/verification
      *
@@ -695,55 +759,30 @@ class InteraktWhatsAppService
     //     '+919512087056',
     //     '829104'
     // );
-
-    public function sendOtpVerificationMessage(string $phone, string $otp, string $callbackData = 'otp_verification_message')
+    public function sendOtpVerificationMessage(string $phone, string $otp)
     {
         $payload = [
             'fullPhoneNumber' => $phone,
-            'callbackData' => $callbackData,
+            'callbackData' => 'otp_verification_message',
             'type' => 'Template',
-            'data' => [
-                'templateName' => 'otp_verification_message',
+            'template' => [
+                'name' => 'otp_verification_message',
                 'languageCode' => 'en',
-                'templateData' => [
-                    'body' => [
-                        ['text' => $otp], // {{1}} = OTP
-                    ],
-                    'buttons' => [
-                        [
-                            'type' => 'copy_code',
-                            'text' => 'Copy OTP',
-                            'value' => $otp
-                        ]
-                    ]
+                'bodyValues' => [$otp],
+                'buttonValues' => (object)[
+                    '0' => [$otp]
                 ]
-            ]
+            ],
         ];
+        Log::info('Final Payload Being Sent', $payload);
+        $response = Http::withHeaders([
+            'Authorization' => 'Basic ' . env('INTERAKT_API_KEY'),
+            'Content-Type' => 'application/json',
+        ])->post('https://api.interakt.ai/v1/public/message/', $payload);
 
-        try {
-            $response = $this->client->post($this->baseUrl, [
-                'headers' => [
-                    'Authorization' => 'Bearer ' . $this->apiKey,
-                    'Content-Type' => 'application/json',
-                ],
-                'json' => $payload
-            ]);
+        Log::info('API Response Status', ['status' => $response->status()]);
+        Log::info('API Response Body', ['body' => $response->body()]);
 
-            $result = json_decode($response->getBody(), true);
-            Log::info('✅ Interakt: otp_verification_message sent', ['response' => $result]);
-
-            return $result;
-        } catch (\Exception $e) {
-            Log::error('❌ Interakt: otp_verification_message failed', [
-                'error' => $e->getMessage(),
-                'payload' => $payload
-            ]);
-
-            return [
-                'success' => false,
-                'message' => 'Failed to send OTP message.',
-                'error' => $e->getMessage()
-            ];
-        }
+        return $response->json();
     }
 }

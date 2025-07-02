@@ -8,8 +8,12 @@ use Illuminate\Database\Eloquent\Model;
 class Cities extends Model
 {
     use HasFactory;
-    protected $guard = ['city_id'];
-    protected $table="city_list";
+
+    protected $table = 'city_list';
+    protected $primaryKey = 'city_id'; // ✅ Important: Specify custom PK
+
+    protected $guarded = ['city_id']; // 🔁 Note: `guard` → `guarded`
+
     public function state()
     {
         return $this->belongsTo(States::class, 'state_id', 'state_id');

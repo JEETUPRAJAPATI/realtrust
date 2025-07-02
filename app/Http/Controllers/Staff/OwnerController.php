@@ -35,11 +35,13 @@ class OwnerController extends Controller
     {
         return view('staff.owner.create');
     }
-    public function add_number (Request $request){
+    public function add_number(Request $request)
+    {
         $owners = Owner::orderBy('id', 'desc')->get();
         return view('staff.owner.add-mask-number', compact('owners'));
     }
-    public function storeMaskNumber (Request $request) {
+    public function storeMaskNumber(Request $request)
+    {
         $validator = Validator::make($request->all(), [
             'ownerId' => 'required|exists:owners,id',
             'mask_number' => 'required|unique:owners,mask_mobile_no|max:11',
@@ -55,10 +57,8 @@ class OwnerController extends Controller
         $owner = Owner::find($request->ownerId);
         $owner->mask_mobile_no = $request->mask_number;
         $owner->save();
-    
-        return redirect()->route('staff.owner.index')->with('success', 'Mask number saved successfully!');
 
-        
+        return redirect()->route('staff.owner.index')->with('success', 'Mask number saved successfully!');
     }
     public function store(Request $request)
     {
@@ -115,9 +115,11 @@ class OwnerController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
+            'email' => 'required|email|max:255|unique:owners,email,' . $id,
+            'mobile' => 'required|max:10|unique:owners,mobile_no,' . $id,
             'image' => 'nullable|mimes:jpeg,jpg,png',
-            
         ]);
+
         // Check if validation fails
         if ($validator->fails()) {
             // Return back with errors and old input
@@ -144,8 +146,9 @@ class OwnerController extends Controller
         } else {
             $imagename = $owner->image;
         }
-        
         $owner->name = $request->name;
+        $owner->email = $request->email;
+        $owner->mobile_no = $request->mobile;
         $owner->image = $imagename;
         $owner->save();
 
@@ -155,7 +158,7 @@ class OwnerController extends Controller
     public function destroy(string $id)
     {
         $owner = Owner::find($id);
-        $property = Property::where('owner_id',$owner->id)->get();
+        $property = Property::where('owner_id', $owner->id)->get();
         if ($property->isNotEmpty()) {
             Toastr::error('Owner cannot be deleted as it has associated property.');
             return back();

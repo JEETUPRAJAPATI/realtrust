@@ -30,8 +30,8 @@ class PropertyController extends Controller
 {
     public function index()
     {
-        $properties = Property::latest()->with('owner', 'schedule_visit', 'amenities', 'gallery', 'features','society','localities')->get();
- 
+        $properties = Property::latest()->with('owner', 'schedule_visit', 'amenities', 'gallery', 'features', 'society', 'localities')->get();
+
         // dd($properties->toArray());
         // dd($properties);
         return view('staff.properties.index', compact('properties'));
@@ -54,7 +54,7 @@ class PropertyController extends Controller
         $amenities = Amenities::all();
         $locality = Locality::where('cities_id', 57933)->get();
         $additionalsDetail  = AdditionalDetail::all();
-        return view('staff.properties.create', compact('features', 'owners', 'amenities', 'locality','additionalsDetail'));
+        return view('staff.properties.create', compact('features', 'owners', 'amenities', 'locality', 'additionalsDetail'));
     }
 
 
@@ -89,7 +89,7 @@ class PropertyController extends Controller
             'block_no'  => 'required',
             'flat_no'   => 'required',
         ];
-        
+
         // Add extra rules if purpose is rent
         if ($request->purpose == 'rent') {
             $rules = array_merge($rules, [
@@ -99,20 +99,20 @@ class PropertyController extends Controller
             ]);
         } elseif ($request->purpose == 'sell') {
             $rules = array_merge($rules, [
-            'price' =>'required',
+                'price' => 'required',
             ]);
         }
-        
+
         $validator = Validator::make($request->all(), $rules);
-        
+
         if ($validator->fails()) {
             return redirect()->back()
                 ->withErrors($validator)
                 ->withInput();
         }
-         $society = Society::where('id', $request->input('society_name'))->first();
-        $title = $society->name."-".$request->input('bhk')."BHK"." ".$request->input('type');
-        
+        $society = Society::where('id', $request->input('society_name'))->first();
+        $title = $society->name . "-" . $request->input('bhk') . "BHK" . " " . $request->input('type');
+
         //  dd($request->all());
         // dd($_FILES);
         $ownerName = $request->input('owner');
@@ -162,9 +162,9 @@ class PropertyController extends Controller
             $imagefloorplan = 'default.png';
         }
         // $additionalDetail = $request->input('additional_detail') ? implode(',', explode(',', $request->input('additional_detail'))) : '';
-        $additionalDetail = is_array($request->input('additional_detail')) 
-        ? implode(',', $request->input('additional_detail')) 
-        : $request->input('additional_detail', '');
+        $additionalDetail = is_array($request->input('additional_detail'))
+            ? implode(',', $request->input('additional_detail'))
+            : $request->input('additional_detail', '');
 
         $property = new Property();
         if (isset($request->featured)) {
@@ -272,14 +272,15 @@ class PropertyController extends Controller
         $localityName = Locality::where('id', $property->locality)->value('name');
         $society = Society::where('id', $property->society_name)->first();
         $city = Cities::where('city_id', $property->city)->first();
-        return view('staff.properties.show', compact('property','localityName','society','city'));
+        return view('staff.properties.show', compact('property', 'localityName', 'society', 'city'));
     }
     public function view($id)
     {
         $property_id = $id ?? null;
         // dd('dsa');
-        $property = Property::with(['owner', 'gallery'])->where('unique_id', $property_id)->firstOrFail();
-        return view('staff.properties.show', compact('property'));
+        $property = Property::with(['owner', 'schedule_visit', 'amenities', 'gallery', 'features', 'society', 'localities'])->where('unique_id', $property_id)->firstOrFail();
+        $city = Cities::where('city_id', $property->city)->first();
+        return view('staff.properties.show', compact('property', 'city'));
     }
 
     public function edit($slug)
@@ -290,11 +291,11 @@ class PropertyController extends Controller
         $amenities = Amenities::all();
         $locality = Locality::where('cities_id', 57933)
             ->get();
-        $additionalsDetail  = AdditionalDetail::all();   
-        return view('staff.properties.edit', compact('property', 'features', 'owners', 'amenities', 'locality','additionalsDetail'));
+        $additionalsDetail  = AdditionalDetail::all();
+        return view('staff.properties.edit', compact('property', 'features', 'owners', 'amenities', 'locality', 'additionalsDetail'));
     }
 
-     public function updateStatus(Request $request, $id)
+    public function updateStatus(Request $request, $id)
     {
         $request->validate([
             'status' => 'required',
@@ -375,7 +376,7 @@ class PropertyController extends Controller
             'block_no'  => 'required',
             'flat_no'   => 'required',
         ];
-        
+
         // Add extra rules if purpose is rent
         if ($request->purpose == 'rent') {
             $rules = array_merge($rules, [
@@ -385,12 +386,12 @@ class PropertyController extends Controller
             ]);
         } elseif ($request->purpose == 'sell') {
             $rules = array_merge($rules, [
-            'price' =>'required',
+                'price' => 'required',
             ]);
-        } 
-        
+        }
+
         $validator = Validator::make($request->all(), $rules);
-        
+
         if ($validator->fails()) {
             return redirect()->back()
                 ->withErrors($validator)
@@ -453,9 +454,9 @@ class PropertyController extends Controller
         } else {
             $imagefloorplan = $property->floor_plan;
         }
-        $additionalDetail = is_array($request->input('additional_detail')) 
-        ? implode(',', $request->input('additional_detail')) 
-        : $request->input('additional_detail', '');
+        $additionalDetail = is_array($request->input('additional_detail'))
+            ? implode(',', $request->input('additional_detail'))
+            : $request->input('additional_detail', '');
 
         $property->unique_id = $property->unique_id;
         $property->title = $property->title;

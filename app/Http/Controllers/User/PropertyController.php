@@ -4,10 +4,13 @@ namespace App\Http\Controllers\User;
 
 use App\Http\Controllers\Controller;
 use App\Models\Amenities;
+use App\Models\ConformTiming;
 use App\Models\Feature;
 use App\Models\Property;
 use App\Models\Payment;
 use App\Models\PropertyImageGallery;
+use App\Models\ScheduleProperties;
+use App\Models\ScheduleVisit;
 use Carbon\Carbon;
 use App\Models\Society;
 use Exception;
@@ -22,6 +25,13 @@ use Intervention\Image\Facades\Image;
 
 class PropertyController extends Controller
 {
+    protected $now;
+
+    public function __construct()
+    {
+        $this->now = Carbon::now();
+        $this->deleteAllExpiredSchedules();
+    }
 
 
     public function index(Request $request)
@@ -47,9 +57,9 @@ class PropertyController extends Controller
 
     public function show($unique_id)
     {
-        
+
         $property = Property::where('unique_id', $unique_id)->with('features', 'gallery', 'amenities', 'schedulePropertyTiming', 'society', 'locality', 'city')->where('status', 'Active')->first();
-       
+
         // $pay = Payment::where('unique_id', $unique_id)->first();
         if (!$property) {
             return response()->json([
@@ -57,11 +67,11 @@ class PropertyController extends Controller
                 'message' => 'Property not found',
             ], 404);
         }
-        
-        $relatedProperties = Property::where('status', 'Active')
+
+        $relatedProperties = Property::with('features', 'gallery', 'amenities', 'schedulePropertyTiming', 'society', 'locality', 'city')->where('status', 'Active')
             ->where('unique_id', '!=', $unique_id) // Exclude the current property
             ->where(function ($query) use ($property) {
-                    $query->Where('locality', $property->locality) // Match by locality
+                $query->Where('locality', $property->locality) // Match by locality
                     ->orWhere('society_name', $property->society_name); // Match by society
             })
             ->limit(5) // Limit the number of related properties
@@ -87,10 +97,10 @@ class PropertyController extends Controller
     {
         $perPage = $request->input('per_page', 10);
         $properties = Property::where('purpose', 'sell')
-                      ->Where('status', 'active')
-                      ->with('features', 'gallery', 'amenities', 'schedulePropertyTiming', 'society', 'locality', 'city')
-                      ->orderBy('created_at', 'desc') 
-                      ->paginate($perPage);
+            ->Where('status', 'active')
+            ->with('features', 'gallery', 'amenities', 'schedulePropertyTiming', 'society', 'locality', 'city')
+            ->orderBy('created_at', 'desc')
+            ->paginate($perPage);
         // dd($properties);
         if ($properties->isEmpty()) {
             return response()->json([
@@ -154,10 +164,10 @@ class PropertyController extends Controller
     }
     public function filterProperties(Request $request)
     {
-     
+
         $query = Property::with('features', 'gallery', 'amenities', 'schedulePropertyTiming', 'society', 'locality', 'city')
             ->where('status', 'active')
-            ->orderBy('created_at', 'desc') ; // Only active properties
+            ->orderBy('created_at', 'desc'); // Only active properties
 
         // Filter by furnish_type
         if ($request->has('furnish_type')) {
@@ -184,7 +194,7 @@ class PropertyController extends Controller
         }
 
         // Filter by locality (single value)
-     if ($request->filled('locality')) {
+        if ($request->filled('locality')) {
             $localities = array_map('trim', explode(',', $request->input('locality')));
             $query->whereIn('locality', $localities);
         }
@@ -201,14 +211,14 @@ class PropertyController extends Controller
             $query->whereIn('bhk', $bhkValues);
         }
 
-         $properties = $query->get();
+        $properties = $query->get();
 
-  // Sort: properties with schedulePropertyTiming first
-    $properties = $properties->sortByDesc(function ($property) {
-        return $property->schedulePropertyTiming !== null;
-    })->values(); // Reset keys after sort
+        // Sort: properties with schedulePropertyTiming first
+        $properties = $properties->sortByDesc(function ($property) {
+            return $property->schedulePropertyTiming !== null;
+        })->values(); // Reset keys after sort
 
- 
+
 
         // Add additional fields to each property
         foreach ($properties as $property) {
@@ -225,9 +235,9 @@ class PropertyController extends Controller
 
         return response()->json([
             'message' => 'Properties list retrieved successfully.',
-          'properties' => [
-        'data' => $properties
-    ]
+            'properties' => [
+                'data' => $properties
+            ]
         ], 200);
     }
 
@@ -442,7 +452,7 @@ class PropertyController extends Controller
 
     public function shareUrl(Request $request)
     {
-        
+
         // dd($request->all());
         $relocation = $request->query('relocation');
         $propertyId = $request->query('property_id');
@@ -481,29 +491,28 @@ class PropertyController extends Controller
                 // dd($property->image);
                 $shortDescription = Str::limit($property->description, 300);
                 $imageUrl = url($property->image_url); // Ensuring it's an absolute URL
-                
+
                 return response()->make("
                     <!DOCTYPE html>
                     <html lang='en'>
                     <head>
                         <meta charset='UTF-8'>
                         <meta name='viewport' content='width=device-width, initial-scale=1.0'>
-                        <meta property='og:title' content='".e($property->title)."'>
-                        <meta property='og:description' content='".e($shortDescription)."'>
-                        <meta property='og:image' content='".e($imageUrl)."'>
-                        <meta property='og:url' content='".e($relocation)."'>
+                        <meta property='og:title' content='" . e($property->title) . "'>
+                        <meta property='og:description' content='" . e($shortDescription) . "'>
+                        <meta property='og:image' content='" . e($imageUrl) . "'>
+                        <meta property='og:url' content='" . e($relocation) . "'>
                         <meta property='og:type' content='website'>
-                        <title>".e($property->title)."</title>
+                        <title>" . e($property->title) . "</title>
                     </head>
                     <body>
                         Redirecting...
                         <script>
-                            window.location.href = '".e($relocation)."';
+                            window.location.href = '" . e($relocation) . "';
                         </script>
                     </body>
                     </html>
                 ", 200, ['Content-Type' => 'text/html']);
-
             } catch (\Exception $e) {
                 Log::error("Error fetching property: " . $e->getMessage());
                 return response('Server error', 500);
@@ -533,6 +542,59 @@ class PropertyController extends Controller
                 'status' => 'error',
                 'message' => 'Failed to fetch property images. Please try again later.'
             ], 500);
+        }
+    }
+
+    public function deleteAllExpiredSchedules()
+    {
+        try {
+            $visits = ScheduleVisit::all();
+            $expiredPropertyIds = [];
+
+            foreach ($visits as $visit) {
+                if (!$visit->timing) continue;
+
+                $parts = explode(' - ', $visit->timing);
+                if (count($parts) !== 2) continue;
+
+                try {
+                    $endTime = Carbon::createFromFormat('m/d/Y h:i A', trim($parts[1]));
+
+                    if ($endTime->lt($this->now)) {
+                        $expiredPropertyIds[] = $visit->property_id;
+                    }
+                } catch (\Exception $e) {
+                    Log::error("Invalid timing format in visit ID {$visit->id}: {$visit->timing}");
+                }
+            }
+
+            $expiredPropertyIds = array_unique($expiredPropertyIds);
+
+            foreach ($expiredPropertyIds as $propertyId) {
+                ScheduleVisit::where('property_id', $propertyId)->delete();
+                ScheduleProperties::where('property_id', $propertyId)->delete();
+
+                $conformTimings = ConformTiming::where('property_id', $propertyId)->get();
+
+                foreach ($conformTimings as $timing) {
+                    $parts = explode(' - ', $timing->timing);
+                    if (count($parts) !== 2) continue;
+
+                    try {
+                        $endTime = Carbon::createFromFormat('m/d/Y h:i A', trim($parts[1]));
+                        if ($endTime->lt($this->now)) {
+                            $timing->delete();
+                        }
+                    } catch (\Exception $e) {
+                        Log::error("Invalid conform_timing format for ID {$timing->id}: {$timing->timing}");
+                    }
+                }
+            }
+
+            // Optional: log or show response
+            Log::info('Expired schedule cleanup completed.');
+        } catch (\Exception $e) {
+            Log::error('Failed to delete expired schedules: ' . $e->getMessage());
         }
     }
 }

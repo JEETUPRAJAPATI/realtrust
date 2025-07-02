@@ -83,7 +83,8 @@ class FieldManagerController extends Controller
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
             'image' => 'nullable|image|mimes:jpeg,jpg,png,webp|max:2048',
-            'email' => 'required|unique:staff,email,' . $id,
+            'mobile' => 'required|digits:15|unique:field_manager,mobile_no,' . $id,
+            'email' => 'required|email|max:255|unique:field_manager,email,' . $id,
         ]);
         // Check if validation fails
         if ($validator->fails()) {
@@ -113,6 +114,7 @@ class FieldManagerController extends Controller
         }
 
         $owner->name = $request->name;
+        $owner->mobile_no = $request->mobile;
         $owner->image = $imagename;
         $owner->save();
 
@@ -133,8 +135,8 @@ class FieldManagerController extends Controller
     public function showLocation($id)
     {
         $fieldManager = FieldManager::findOrFail($id);
-        $user=User::where('id',2)->first();
+        $user = User::where('id', 2)->first();
         // dd($user);
-        return view('staff.field_manager.field_manager_location', compact('fieldManager','user'));
+        return view('staff.field_manager.field_manager_location', compact('fieldManager', 'user'));
     }
 }

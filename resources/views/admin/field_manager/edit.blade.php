@@ -51,7 +51,7 @@
                     <div class="form-group form-float mb-4">
                         <div class="form-line {{ $errors->has('mobile') ? 'focused error' : '' }}">
                             <label class="form-label">Mobile</label>
-                            <input type="tel" placeholder="Enter Mobile" name="mobile" class="form-control" value="{{ old('mobile',$field_manager->mobile_no) }}" disabled>
+                            <input type="tel" placeholder="Enter Mobile" name="mobile" class="form-control" value="{{ old('mobile',$field_manager->mobile_no) }}">
                         </div>
                         @error('mobile')
                         <span class="text-danger">{{ $message }}</span>

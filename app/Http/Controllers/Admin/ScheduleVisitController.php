@@ -325,7 +325,7 @@ class ScheduleVisitController extends Controller
         $templateName = 'property_schedule_confirmation_user'; // Define your template name here
         $languageCode = 'en_US';
         $confirmationUrl =  $scheduleVisit->field_manager->id;
-        
+
         $callingUrl = $user->user_id  . '/' . $scheduleVisit->field_manager->id;
         $variables = [
             $userInfo->user->name,
@@ -335,7 +335,7 @@ class ScheduleVisitController extends Controller
             $scheduleVisit->field_manager->mobile_no,
         ];
         // dd($variables);
-        $response = $this->whatsAppService->sendingWhatsAppMessageToUser($phoneNumber, $templateName, $languageCode, $variables, $confirmationUrl,$imageUrl,$$callingUrl);
+        $response = $this->whatsAppService->sendingWhatsAppMessageToUser($phoneNumber, $templateName, $languageCode, $variables, $confirmationUrl, $imageUrl, $$callingUrl);
 
 
         if (isset($response['error']) && $response['error'] === true) {
@@ -409,6 +409,22 @@ class ScheduleVisitController extends Controller
         $ScheduleVisit->delete();
         Toastr::success('message', 'Schedule visit deleted successfully.');
         return back();
+    }
+    public function destroyUser(string $id)
+    {
+        try {
+            $records = ScheduleVisitUserList::where('id', $id)->get();
+            if ($records->isNotEmpty()) {
+                ScheduleVisitUserList::where('id', $id)->delete();
+                Toastr::success('visiter deleted successfully.', 'Success');
+            } else {
+                Toastr::error('visiter not found.', 'Error');
+            }
+            return back();
+        } catch (\Exception $e) {
+            Toastr::error('Failed to delete visiter. Try again.', 'Error');
+            return back()->withInput();
+        }
     }
     public function unreadCount()
     {

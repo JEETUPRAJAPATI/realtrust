@@ -124,7 +124,7 @@ Route::group(['prefix' => 'admin', 'namespace' => 'Admin', 'middleware' => ['adm
     Route::post('profile', [DashboardController::class, 'profileUpdate'])->name('profile.update');
     Route::get('changepassword', [DashboardController::class, 'changePassword'])->name('changepassword');
     Route::post('changepassword', [DashboardController::class, 'changePasswordUpdate'])->name('changepassword.update');
-    
+
     // invoice routes
     Route::get('invoice/list', [InvoiceController::class, 'invoicesList'])->name('invoice.list');
     Route::get('invoice/create', [InvoiceController::class, 'create'])->name('invoice.create');
@@ -262,7 +262,7 @@ Route::group(['prefix' => 'admin', 'namespace' => 'Admin', 'middleware' => ['adm
     Route::get('field_manager/{id}/edit', [AdminFieldManagerController::class, 'edit'])->name('field_manager.edit');
     Route::put('field_manager/{id}', [AdminFieldManagerController::class, 'update'])->name('field_manager.update');
     route::delete('field_manager/{id}', [AdminFieldManagerController::class, 'destroy'])->name('field_manager.destroy');
-    Route::put('/fieldManager-password-update/{id}', [AdminFieldManagerController::class, 'fieldManagerPasswordUpdate'])->name('fieldManagerPassword.update');
+    Route::post('/fieldManager-password-update/{id}', [AdminFieldManagerController::class, 'fieldManagerPasswordUpdate'])->name('fieldManagerPassword.update');
 
     Route::get('contact', [ContactController::class, 'index'])->name('contact.index');
     Route::get('contact/create', [ContactController::class, 'create'])->name('contact.create');
@@ -313,8 +313,10 @@ Route::group(['prefix' => 'admin', 'namespace' => 'Admin', 'middleware' => ['adm
     Route::get('schedule_visit/{id}/edit', [AdminScheduleVisitController::class, 'edit'])->name('schedule_visit.edit');
     Route::put('schedule_visit/{id}', [AdminScheduleVisitController::class, 'update'])->name('schedule_visit.update');
     route::delete('schedule_visit/{id}', [AdminScheduleVisitController::class, 'destroy'])->name('schedule_visit.destroy');
-    
-    
+
+    route::delete('schedule_visit/user/{id}', [AdminScheduleVisitController::class, 'destroyUser'])->name('schedule_visit.user.destroy');
+
+
 
     // Route::resource('services', 'ServiceController');
     // Route::resource('testimonials', 'TestimonialController');
@@ -463,9 +465,9 @@ Route::group(['prefix' => 'staff', 'namespace' => 'staff', 'middleware' => ['sta
     Route::post('schedule_visit/add', [ScheduleVisitController::class, 'add'])->name('schedule_visit.add');
     Route::get('schedule_visit/create', [ScheduleVisitController::class, 'create'])->name('schedule_visit.create');
     Route::post('schedule_visit', [ScheduleVisitController::class, 'store'])->name('schedule_visit.store');
-    
+
     Route::post('manual_visit', [ScheduleVisitController::class, 'manual_schedule_visit'])->name('schedule_visit.manual_visit');
-    
+
     Route::get('schedule_visit/property', [ScheduleVisitController::class, 'getOwnersByProperty'])->name('schedule_visit.property');
     Route::get('schedule_visit/{id}/view', [ScheduleVisitController::class, 'view'])->name('schedule_visit.view');
     Route::get('schedule_visit/{id}/user', [ScheduleVisitController::class, 'userList'])->name('schedule_visit.user');
@@ -475,6 +477,9 @@ Route::group(['prefix' => 'staff', 'namespace' => 'staff', 'middleware' => ['sta
     Route::get('schedule_visit/{id}/edit', [ScheduleVisitController::class, 'edit'])->name('schedule_visit.edit');
     Route::put('schedule_visit/{id}', [ScheduleVisitController::class, 'update'])->name('schedule_visit.update');
     route::delete('schedule_visit/{id}', [ScheduleVisitController::class, 'destroy'])->name('schedule_visit.destroy');
+
+    route::delete('schedule_visit/user/{id}', [ScheduleVisitController::class, 'destroyUser'])->name('schedule_visit.user.destroy');
+
 
     Route::get('notifications/unread-count', [ScheduleVisitController::class, 'unreadCount'])->name('notifications.unread-count');
     Route::get('/notifications/read/{id}', [ScheduleVisitController::class, 'markAsRead'])->name('notifications.read');

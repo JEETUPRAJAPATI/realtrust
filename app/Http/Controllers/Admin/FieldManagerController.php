@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Storage;
 use Intervention\Image\Facades\Image;
 use Yoeunes\Toastr\Facades\Toastr;
 use Illuminate\Support\Str;
+
 class FieldManagerController extends Controller
 {
     public function index()
@@ -80,7 +81,8 @@ class FieldManagerController extends Controller
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
             'image' => 'nullable|image|mimes:jpeg,jpg,png,webp,avif|max:2048',
-            'email' => 'required|unique:staff,email,' . $id,
+            'mobile' => 'required|digits:15|unique:field_manager,mobile_no,' . $id,
+            'email' => 'required|unique:field_manager,email,' . $id,
         ]);
         // Check if validation fails
         if ($validator->fails()) {
@@ -111,6 +113,7 @@ class FieldManagerController extends Controller
 
         $owner->name = $request->name;
         $owner->image = $imagename;
+        $owner->mobile_no = $request->mobile;
         $owner->email = $request->email;
         $owner->save();
 
@@ -129,14 +132,25 @@ class FieldManagerController extends Controller
         return back();
     }
 
-    public function fieldManagerPasswordUpdate (Request $request, $id) {
+
+    public function fieldManagerPasswordUpdate(Request $request, $id)
+    {
         $request->validate([
             'password' => 'required|string|min:6|confirmed',
         ]);
+
         $field_manager = FieldManager::find($id);
+        // dd($request->all());
+        // dd($field_manager);
+        if (!$field_manager) {
+            Toastr::error('Field Manager not found.');
+            return back();
+        }
+
         $field_manager->password = Hash::make($request->password);
         $field_manager->save();
-        Toastr::success('message', 'Password updated successfully.');
+
+        Toastr::success('Password updated successfully.');
         return back();
     }
 }

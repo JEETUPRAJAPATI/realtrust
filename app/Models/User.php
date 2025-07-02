@@ -67,12 +67,12 @@ class User extends Authenticatable
     {
         if ($this->attributes['image']) {
             $userId = $this->attributes['id'];
-            return URL::to(Storage::url('users/' .'/'  . $this->attributes['image']));
+            return URL::to(Storage::url('users/' . '/'  . $this->attributes['image']));
         }
         return null;
     }
 
-    
+
     public function getAgreementUrlAttribute()
     {
         if (!empty($this->attributes['agreement'])) {
@@ -80,5 +80,15 @@ class User extends Authenticatable
             return URL::to(Storage::url('users/' . $userId . '/documents' . '/' . $this->attributes['agreement']));
         }
         return null;
+    }
+    public function favorites()
+    {
+        return $this->hasMany(Favorite::class);
+    }
+
+    public function favoriteProperties()
+    {
+        return $this->belongsToMany(Property::class, 'favorites', 'user_id', 'property_id')
+            ->withTimestamps();
     }
 }

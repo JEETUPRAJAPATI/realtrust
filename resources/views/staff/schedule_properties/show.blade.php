@@ -137,18 +137,18 @@
                         <strong>Email:</strong>
                         <span class="right">{{$visiterInfo->property->owner->email ?? 'N/A'}}</span>
                     </li>
-                    
+
                     <li class="list-group-item">
                         <strong>Mobile:</strong>
-                        
+
                         <!--<span class="right">{{$visiterInfo->property->owner->mobile_no ?? 'N/A'}}</span>-->
                         <button type="button" id="makeCall" class="btn btn-primary" data-bs-toggle="modal">
                             Call Now
-                         </button>
-                        <input type="hidden" class="form-control" id="customerNumber"  name="customer_number" value="{{ $visiterInfo->property->owner->mobile_no }}" required>
+                        </button>
+                        <input type="hidden" class="form-control" id="customerNumber" name="customer_number" value="{{ $visiterInfo->property->owner->mobile_no }}" required>
                         <input type="hidden" class="form-control" id="agentNumber" name="agent_number" value="{{ auth('staff')->user()->mobile_no }}" required>
                     </li>
-                  <li class="list-group-item">
+                    <li class="list-group-item">
                         <strong>Manual Confirm Timing:</strong>
                         <span class="right">
                             <a href="https://admin.realtrust.in/conform-timing/{{ $visiterInfo->property->unique_id ?? '' }}" target="_blank" rel="noopener noreferrer">
@@ -163,17 +163,17 @@
                             <strong>Timing:</strong>
                             <span class="right">
                                 @if ($visiterInfo->conform_timing && $visiterInfo->conform_timing->timing)
-                                    @php
-                                        // Split the timing string into start and end times
-                                        [$startDatetime, $endDatetime] = explode(' - ', $visiterInfo->conform_timing->timing);
+                                @php
+                                // Split the timing string into start and end times
+                                [$startDatetime, $endDatetime] = explode(' - ', $visiterInfo->conform_timing->timing);
 
-                                        // Format the start and end times using Carbon
-                                        $formattedStart = Carbon\Carbon::createFromFormat('m/d/Y h:i A', $startDatetime)->format('l, F j, Y \a\t g:i A');
-                                        $formattedEnd = Carbon\Carbon::createFromFormat('m/d/Y h:i A', $endDatetime)->format('l, F j, Y \a\t g:i A');
-                                    @endphp
-                                    {{ $formattedStart }} - {{ $formattedEnd }}
+                                // Format the start and end times using Carbon
+                                $formattedStart = Carbon\Carbon::createFromFormat('m/d/Y h:i A', $startDatetime)->format('l, F j, Y \a\t g:i A');
+                                $formattedEnd = Carbon\Carbon::createFromFormat('m/d/Y h:i A', $endDatetime)->format('l, F j, Y \a\t g:i A');
+                                @endphp
+                                {{ $formattedStart }} - {{ $formattedEnd }}
                                 @else
-                                    No timing available
+                                No timing available
                                 @endif
                             </span>
                         </p>
@@ -322,12 +322,12 @@
                             <strong>Mobile:</strong>
                             <!--<input type="text" name="mobile" id="mobile" class="form-control" placeholder="Enter Mobile Number"-->
                             <!--    value="{{ old('mobile', $visiterInfo->conform_timing->field_manager->mobile_no ?? '') }}" disabled>-->
-                            <button  type="button" id="makeCallField" class="btn btn-primary" data-bs-toggle="modal">
-                            Call Now
-                         </button>
-                        <input type="hidden" class="form-control" id="mobile"  name="customer_number" value="{{ old('mobile', $visiterInfo->conform_timing->field_manager->mobile_no ?? '') }}" required>
-                        <input type="hidden" class="form-control" id="agentNumberField" name="agent_number" value="{{ auth('staff')->user()->mobile_no }}" required>
-                       
+                            <button type="button" id="makeCallField" class="btn btn-primary" data-bs-toggle="modal">
+                                Call Now
+                            </button>
+                            <input type="hidden" class="form-control" id="mobile" name="customer_number" value="{{ old('mobile', $visiterInfo->conform_timing->field_manager->mobile_no ?? '') }}" required>
+                            <input type="hidden" class="form-control" id="agentNumberField" name="agent_number" value="{{ auth('staff')->user()->mobile_no }}" required>
+
                         </li>
 
                         @if(!empty($visiterInfo->conform_timing) && $visiterInfo->conform_timing->field_manager_id != '')
@@ -338,7 +338,7 @@
                             </p>
                             <input type="hidden" id="conform_timing" name="conform_timing" value="{{ $visiterInfo->conform_timing->id }}">
                             @else
-                              <p class="list-group-item">
+                            <p class="list-group-item">
                                 <strong>Manual Confirm Timing:</strong>
                                 <span class="right">
                                     <a href="https://admin.realtrust.in/conform-timing/field_manager/{{ $visiterInfo->property->unique_id ?? '' }}" target="_blank" rel="noopener noreferrer">
@@ -381,15 +381,15 @@
 
 <!--to make call -->
 <script>
-    $(document).ready(function () {
-        $("#makeCall").on("click", function (e) {
+    $(document).ready(function() {
+        $("#makeCall").on("click", function(e) {
             e.preventDefault();
-            
+
             let customerNumber = $("#customerNumber").val().trim();
             let staffNumber = $("#agentNumber").val().trim();
 
             $.ajax({
-                url: "{{ route('staff.make.call') }}", 
+                url: "{{ route('staff.make.call') }}",
                 type: "POST",
                 data: {
                     customer_number: customerNumber,
@@ -398,19 +398,19 @@
                 headers: {
                     "X-CSRF-TOKEN": $('meta[name="csrf-token"]').attr("content")
                 },
-                success: function (response) {
-                               Swal.fire({
-                icon: "success",
-                title: "Success!",
-                text: response.message || "Operation completed successfully.",
-                timer: 2000,
-                showConfirmButton: false
-            });
+                success: function(response) {
+                    Swal.fire({
+                        icon: "success",
+                        title: "Success!",
+                        text: response.message || "Operation completed successfully.",
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
 
                 },
-                error: function (xhr) {
+                error: function(xhr) {
                     let errorMessage = "Something went wrong. Please try again!";
-                
+
                     if (xhr.responseJSON) {
                         if (typeof xhr.responseJSON.error === "string") {
                             errorMessage = xhr.responseJSON.error; // Direct string message
@@ -419,7 +419,7 @@
                             errorMessage = Object.values(xhr.responseJSON.error).join("\n");
                         }
                     }
-                
+
                     Swal.fire({
                         icon: "error",
                         title: "Error!",
@@ -428,9 +428,9 @@
                 }
             });
         });
-        $("#makeCallField").on("click", function (e) {
+        $("#makeCallField").on("click", function(e) {
             e.preventDefault();
-            
+
             let customerNumber = $("#mobile").val().trim();
             let staffNumber = $("#agentNumberField").val().trim();
             if (!customerNumber) {
@@ -445,7 +445,7 @@
             }
 
             $.ajax({
-                url: "{{ route('staff.make.call') }}", 
+                url: "{{ route('staff.make.call') }}",
                 type: "POST",
                 data: {
                     customer_number: customerNumber,
@@ -454,19 +454,19 @@
                 headers: {
                     "X-CSRF-TOKEN": $('meta[name="csrf-token"]').attr("content")
                 },
-                success: function (response) {
-                                Swal.fire({
-                icon: "success",
-                title: "Success!",
-                text: response.message || "Operation completed successfully.",
-                timer: 2000,
-                showConfirmButton: false
-            });
+                success: function(response) {
+                    Swal.fire({
+                        icon: "success",
+                        title: "Success!",
+                        text: response.message || "Operation completed successfully.",
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
 
                 },
-                error: function (xhr) {
+                error: function(xhr) {
                     let errorMessage = "Something went wrong. Please try again!";
-                
+
                     if (xhr.responseJSON) {
                         if (typeof xhr.responseJSON.error === "string") {
                             errorMessage = xhr.responseJSON.error; // Direct string message
@@ -475,7 +475,7 @@
                             errorMessage = Object.values(xhr.responseJSON.error).join("\n");
                         }
                     }
-                
+
                     Swal.fire({
                         icon: "error",
                         title: "Error!",
